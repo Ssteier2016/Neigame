@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Competencia por Monedas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #111827;
+            color: #f9fafb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 2rem;
+        }
+        #user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        #user-info p {
+            font-size: 0.8rem;
+            color: #cbd5e0;
+        }
+        #pot-display {
+            font-size: 1.5rem;
+            color: #f59e0b;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 8px rgba(252, 211, 77, 0.8);
+        }
+        #timer-display {
+            font-size: 1rem;
+            color: #6ee7b7;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #timer-display p{
+           margin-bottom: 0.5rem;
+        }
+
+        #compete-button {
+            padding: 1rem 2.5rem;
+            font-size: 1.2rem;
+            background-color: #e63946;
+            color: #fff;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+            font-family: 'Press Start 2P', cursive;
+            position: relative;
+            overflow: hidden;
+            display: flex; /* Añadido para centrar el texto y la barra */
+            align-items: center;
+            justify-content: center;
+        }
+        #compete-button:hover {
+            background-color: #c81e2e;
+        }
+        #compete-button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+            position: relative;
+        }
+
+        #compete-button:disabled::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, #b1b5b9 0%, #9ca3af 50%, #b1b5b9 100%);
+            animation: loading 2s linear infinite;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 100% 0;
+            }
+            100% {
+                background-position: -100% 0;
+            }
+        }
+
+        #message-box {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+            border: 1px solid #4a5568;
+            font-size: 0.8rem;
+        }
+        .button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            background-color: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 0.5rem;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .button:hover {
+            background-color: #2563eb;
+        }
+        .button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+        }
+        #chat-container {
+            width: 80%;
+            max-width: 400px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid #4a5568;
+        }
+        #chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            border: 1px solid #6b7280;
+            border-radius: 0.25rem;
+            background-color: #1f2937;
+            color: #fff;
+            font-size: 0.8rem;
+            line-height: 1.2rem;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #6b7280;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            background-color: #1f2937;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #chat-input::placeholder {
+            color: #9ca3af;
+            font-size: 0.8rem;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #send-button {
+            padding: 0.5rem 1rem;
+            background-color: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 0.8rem;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #send-button:hover {
+            background-color: #2563eb;
+        }
+        #send-audio-button {
+            padding: 0.5rem;
+            background-color: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 0.8rem;
+        }
+        #send-audio-button:hover {
+            background-color: #2563eb;
+        }
+        #audio-player {
+            margin-top: 0.5rem;
+            display: none;
+            width: 100%;
+        }
+        #user-list {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            border: 1px solid #6b7280;
+            border-radius: 0.25rem;
+            background-color: #1f2937;
+            color: #fff;
+            font-size: 0.8rem;
+            width: 80%;
+            max-width: 400px;
+        }
+        #user-list p {
+            margin-bottom: 0.5rem;
+        }
+        #user-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #user-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .chat-message {
+            margin-bottom: 0.25rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-header {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-bottom: 0.125rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .audio-message{
+            display: flex;
+            flex-direction: column;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-inter">
+    <div id="game-container" class="flex flex-col items-center">
+        <div id="user-info" class="flex justify-content-between items-center w-full mb-4">
+            <p id="username-display">Usuario: Jugador1</p>
+            <p id="coins-display">Saldo: 1000 monedas</p>
+        </div>
+        <div id="pot-display" class="text-yellow-400 text-2xl mb-4">Pozo Acumulado: 0 monedas</div>
+        <div id="timer-display" class="text-teal-400 text-lg mb-4">
+            <p>Tiempo Restante: 240 segundos</p>
+            <div id="progress-bar" style="width: 100%; height: 10px; background-color: #4a5568; border-radius: 5px; margin-top: 0.5rem; position: relative;">
+                <div id="progress-bar-fill" style="height: 10px; background-color: #6ee7b7; border-radius: 5px; width: 100%; position: absolute; left: 0; top: 0;"></div>
+            </div>
+            <p id="timer-percentage">100%</p>
+        </div>
+        <button id="compete-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-4">
+            ¡APOSTAR 100 MONEDAS!
+        </button>
+        <div id="message-box" class="bg-gray-800 text-white rounded-md p-4 mb-4 text-center">
+            Bienvenido al juego. ¡Presiona el botón para competir!
+        </div>
+        <div class="flex space-x-4">
+            <button id="reload-button" class="button">Recargar Monedas</button>
+            <button id="withdraw-button" class="button">Retirar Monedas</button>
+            <button id="logout-button" class="button">Cerrar Sesión</button>
+        </div>
+        <div id="chat-container" class="bg-gray-800 rounded-md mt-4 p-4">
+            <div id="chat-messages" class="h-48 overflow-y-auto mb-2 p-2 border border-gray-600 rounded-md bg-gray-900 text-white text-sm">
+            </div>
+            <div id="chat-input-container" class="flex gap-2">
+                <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." class="bg-gray-900 text-white border border-gray-600 rounded-md p-2 flex-1">
+                <button id="send-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-md px-4">Enviar</button>
+                <button id="send-audio-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-md px-2">🎤</button>
+            </div>
+            <audio id="audio-player" controls></audio>
+        </div>
+        <div id="user-list" class="mt-4">
+            <p>Usuarios Conectados:</p>
+            <ul id="connected-users">
+                <li>Jugador1</li>
+                <li>Jugador2</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        // Configuración inicial del juego
+        let pot = 0;
+        let timerSeconds = 240;
+        let timerInterval;
+        let playerCoins = 1000;
+        let hasParticipated = false;
+        let audioRecorder;
+        let audioChunks = [];
+        let username = "Jugador1"; // Nombre de usuario Hardcoded
+        let connectedUsers = ["Jugador1", "Jugador2"];
+        const developerPercentage = 0.05;
+        const potPercentage = 0.06;
+
+        let developerCoins = 0;
+
+        const potDisplay = document.getElementById('pot-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const competeButton = document.getElementById('compete-button');
+        const messageBox = document.getElementById('message-box');
+        const reloadButton = document.getElementById('reload-button');
+        const withdrawButton = document.getElementById('withdraw-button');
+        const logoutButton = document.getElementById('logout-button');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const sendAudioButton = document.getElementById('send-audio-button');
+        const audioPlayer = document.getElementById('audio-player');
+        const usernameDisplay = document.getElementById('username-display');
+        const coinsDisplay = document.getElementById('coins-display');
+        const connectedUsersListElement = document.getElementById('connected-users');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const timerPercentageDisplay = document.getElementById('timer-percentage');
+
+        // Funciones para actualizar la UI
+        function updatePotDisplay() {
+            potDisplay.textContent = `Pozo Acumulado: ${pot} monedas`;
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = Math.floor(timerSeconds) % 60;
+            const milliseconds = Math.floor((timerSeconds - Math.floor(timerSeconds)) * 100);
+            timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
+        }
+
+        function showMessage(message) {
+            messageBox.textContent = message;
+        }
+
+        function updatePlayerInfo() {
+            usernameDisplay.textContent = `Usuario: ${username}`;
+            coinsDisplay.textContent = `Saldo: ${playerCoins} monedas`;
+        }
+
+        function updateConnectedUsersList() {
+            connectedUsersListElement.innerHTML = '';
+            connectedUsers.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                connectedUsersListElement.appendChild(li);
+            });
+        }
+
+        // Función para iniciar el temporizador
+        function startTimer() {
+            timerSeconds = 240;
+            updateTimerDisplay();
+            clearInterval(timerInterval);
+            let totalTime = 240;
+            let timePassed = 0;
+
+            competeButton.textContent = 'Esperando...';
+            competeButton.disabled = true;
+
+            timerInterval = setInterval(() => {
+                timerSeconds -= 0.01;
+                timePassed += 0.01;
+                updateTimerDisplay();
+
+                let percentage = Math.max(0, ((totalTime - timePassed) / totalTime) * 100);
+                progressBarFill.style.width = `${percentage}%`;
+                timerPercentageDisplay.textContent = `${Math.ceil(percentage)}%`;
+
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    if (hasParticipated) {
+                        let playerWinAmount = Math.round(pot * 0.89);
+                        let developerWinAmount = Math.round(pot * developerPercentage);
+                        let potLeftover = Math.round(pot * potPercentage);
+
+                        playerCoins += playerWinAmount;
+                        developerCoins += developerWinAmount;
+                        pot = potLeftover;
+
+                        updatePlayerInfo();
+                        updatePotDisplay();
+                        showMessage(`¡Felicidades! Has ganado ${playerWinAmount} monedas. ¡El desarrollador ganó ${developerWinAmount} monedas!`);
+                        hasParticipated = false;
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar';
+                        progressBarFill.style.width = `100%`;
+                        timerPercentageDisplay.textContent = `100%`;
+                    } else {
+                        showMessage('El tiempo se agotó y nadie participó.');
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar';
+                        progressBarFill.style.width = `100%`;
+                        timerPercentageDisplay.textContent = `100%`;
+                    }
+                }
+            }, 10);
+        }
+
+        // Función para manejar el clic en el botón de competir
+        function handleCompete() {
+            if (playerCoins >= 100) {
+                if (!hasParticipated) {
+                    playerCoins -= 100;
+                    pot += 100;
+                    updatePotDisplay();
+                    updatePlayerInfo();
+                    showMessage('Has apostado 100 monedas. ¡El temporizador ha comenzado!');
+                    startTimer();
+                    hasParticipated = true;
+                    competeButton.disabled = true;
+                    competeButton.textContent = 'Esperando...';
+                } else {
+                    showMessage('Ya has participado en esta ronda.');
+                }
+            } else {
+                showMessage('No tienes suficientes monedas para participar.');
+            }
+        }
+
+        // Funciones de los botones de recarga, retiro y cierre de sesión
+        function handleReload() {
+            playerCoins += 1000;
+            updatePlayerInfo();
+            showMessage('Se han recargado 1000 monedas.');
+        }
+
+        function handleWithdraw() {
+            if (playerCoins > 0) {
+                showMessage(`Se han retirado ${playerCoins} monedas.`);
+                playerCoins = 0;
+                updatePlayerInfo();
+            } else {
+                showMessage('No tienes monedas para retirar.');
+            }
+        }
+
+        function handleLogout() {
+            showMessage('Sesión cerrada. Vuelve pronto.');
+            // Aquí se debería redirigir al usuario a la página de inicio de sesión
+        }
+
+        // Función para agregar mensajes al chat
+        function addChatMessage(message, isAudio = false, sender = username) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message');
+            const header = document.createElement('div');
+            header.classList.add('message-header');
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            header.textContent = `${sender} - ${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            if (isAudio) {
+                const audioContainer = document.createElement('div');
+                audioContainer.classList.add('audio-message');
+                audioContainer.textContent = "Audio Mensaje: ";
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = message;
+                audioContainer.appendChild(audio);
+                messageElement.appendChild(header);
+                messageElement.appendChild(audioContainer);
+
+            } else {
+                messageElement.textContent = message;
+                messageElement.prepend(header);
+            }
+
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Función para manejar el envío de mensajes de chat
+        function handleSendMessage() {
+            const message = chatInput.value.trim();
+            if (message !== '') {
+                addChatMessage(message);
+                chatInput.value = '';
+                // Aquí se debería enviar el mensaje al servidor
+            }
+        }
+
+        // Función para iniciar la grabación de audio
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioRecorder = new MediaRecorder(stream);
+                audioRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                audioRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    addChatMessage(audioUrl, true);
+                    audioChunks = [];
+                    // Aquí se debería enviar el audioUrl al servidor
+                    audioPlayer.src = audioUrl;
+                    audioPlayer.style.display = 'block';
+                };
+                audioRecorder.start();
+                showMessage('Grabando audio...');
+            } catch (error) {
+                console.error('Error al iniciar la grabación de audio:', error);
+                showMessage('No se pudo acceder al micrófono.');
+            }
+        }
+
+        // Función para detener la grabación de audio
+        function stopRecording() {
+            if (audioRecorder) {
+                audioRecorder.stop();
+                showMessage('Grabación de audio detenida.');
+            }
+        }
+
+        // Event listeners
+        competeButton.addEventListener('click', handleCompete);
+        reloadButton.addEventListener('click', handleReload);
+        withdrawButton.addEventListener('click', handleWithdraw);
+        logoutButton.addEventListener('click', handleLogout);
+        sendButton.addEventListener('click', handleSendMessage);
+        sendAudioButton.addEventListener('mousedown', startRecording);
+        sendAudioButton.addEventListener('mouseup', stopRecording);
+        sendAudioButton.addEventListener('mouseleave', stopRecording);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+
+        // Inicializar el juego
+        updatePotDisplay();
+        updateTimerDisplay();
+        updatePlayerInfo();
+        updateConnectedUsersList();
+        showMessage('¡Bienvenido al juego! ¡Presiona el botón para competir!');
+    </script>
+</body>
+</html>
