@@ -7,23 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link href="/output.css" rel="stylesheet">
     <link rel="icon" href="/favicon.ico">
-    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
-    <script>
-        function showErrorMessage(elementId, message) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = message;
-            } else {
-                console.warn(`Elemento con ID ${elementId} no encontrado: ${message}`);
-                const fallbackElement = document.getElementById('message-box');
-                if (fallbackElement) {
-                    fallbackElement.textContent = message;
-                }
-            }
-        }
-    </script>
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
@@ -41,7 +25,7 @@
             box-sizing: border-box;
             image-rendering: pixelated;
         }
-        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #withdraw-form {
+        #auth-container, #game-container, #chat-container {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -49,10 +33,10 @@
             width: 100%;
             max-width: 500px;
         }
-        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #withdraw-form.active {
+        #auth-container.active, #game-container.active {
             display: flex;
         }
-        #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form {
+        #auth-form, #chat-container {
             background-color: rgba(0, 0, 0, 0.9);
             padding: 1rem;
             border: 4px solid #ffeb3b;
@@ -62,7 +46,7 @@
             max-width: 400px;
             text-align: center;
         }
-        #auth-form input, #settings-form input, #withdraw-form input, #withdraw-form select, #message-input, #reload-amount {
+        #auth-form input, #message-input {
             width: 100%;
             padding: 0.5rem;
             margin: 0.5rem 0;
@@ -73,7 +57,7 @@
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7rem;
         }
-        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel {
+        #auth-form button, #compete-button, #send-button, #record-button, #logout-button {
             padding: 0.5rem 1rem;
             margin: 0.5rem;
             font-size: 0.8rem;
@@ -85,44 +69,25 @@
             transition: background-color 0.3s ease;
             font-family: 'Press Start 2P', cursive;
         }
-        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover, #reload-submit:hover, #reload-cancel:hover {
+        #auth-form button:hover, #compete-button:hover, #send-button:hover, #record-button:hover, #logout-button:hover {
             background-color: #c2185b;
         }
         #record-button.recording {
             background-color: #4caf50;
             border-color: #4caf50;
         }
-        #auth-toggle, #forgot-password {
+        #auth-toggle {
             color: #03a9f4;
             cursor: pointer;
             text-decoration: underline;
             font-size: 0.7rem;
         }
-        #forgot-password {
-            margin-top: 0.5rem;
-        }
-        #forgot-password a {
-            color: #03a9f4;
-        }
-        #forgot-password a:hover {
-            color: #0288d1;
-        }
-        #auth-message, #settings-message, #policies-message, #withdraw-message, #reload-message, #chat-message {
+        #auth-message, #chat-message, #message-box {
             color: #ffeb3b;
             font-size: 0.7rem;
             margin-top: 0.5rem;
         }
-        #policies-content {
-            max-height: 400px;
-            overflow-y: auto;
-            text-align: left;
-            font-size: 0.6rem;
-            margin-bottom: 0.5rem;
-            padding: 0.75rem;
-            border: 2px solid #03a9f4;
-            background-color: #1a237e;
-        }
-        #user-info, #coins-info {
+        #user-info, #pot-display, #timer-display {
             width: 100%;
             margin-bottom: 0.5rem;
             background: rgba(0, 0, 0, 0.7);
@@ -131,7 +96,7 @@
             border-radius: 4px;
             text-align: center;
         }
-        #user-info p, #coins-info p {
+        #user-info p, #pot-display, #timer-display p {
             font-size: 0.7rem;
             color: #ffeb3b;
             text-shadow: 0 0 5px #e91e63;
@@ -139,129 +104,22 @@
         }
         #pot-display {
             font-size: 1.2rem;
-            color: #ffeb3b;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 0.5rem;
-            margin-bottom: 0.5rem;
             border: 4px solid #03a9f4;
-            border-radius: 8px;
             width: 150px;
             height: 150px;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
             text-shadow: 0 0 8px #e91e63;
             box-shadow: 0 0 10px #03a9f4;
         }
         #timer-display {
-            font-size: 0.8rem;
-            color: #4caf50;
-            margin-bottom: 0.5rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 0.5rem;
             border: 2px solid #4caf50;
-            border-radius: 4px;
-        }
-        #timer-display p {
-            margin-bottom: 0.5rem;
-            text-shadow: 0 0 5px #4caf50;
-        }
-        #compete-button {
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            background-color: #e91e63;
-            color: #fff;
-            border: 2px solid #ffeb3b;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-            margin-bottom: 0.5rem;
-            font-family: 'Press Start 2P', cursive;
-        }
-        #compete-button:hover {
-            background-color: #c2185b;
         }
         #compete-button:disabled {
             background-color: #616161;
             cursor: not-allowed;
             opacity: 0.6;
-            box-shadow: none;
-        }
-        #message-box {
-            background-color: rgba(0, 0, 0, 0.8);
-            color: #ffeb3b;
-            padding: 0.5rem;
-            margin-bottom: 0.5rem;
-            border: 2px solid #03a9f4;
-            border-radius: 4px;
-            text-align: center;
-            width: 100%;
-            max-width: 400px;
-            font-size: 0.7rem;
-            text-shadow: 0 0 5px #03a9f4;
-        }
-        .button {
-            padding: 0.5rem 1rem;
-            font-size: 0.8rem;
-            background-color: #03a9f4;
-            color: #fff;
-            border: 2px solid #ffeb3b;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            margin: 0.25rem;
-            font-family: 'Press Start 2P', cursive;
-        }
-        .button:hover {
-            background-color: #0288d1;
-        }
-        .button:disabled {
-            background-color: #616161;
-            cursor: not-allowed;
-            opacity: 0.6;
-            box-shadow: none;
-        }
-        #withdraw-form, #reload-form {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-            display: none;
-        }
-        #withdraw-form.active, #reload-form.active {
-            display: block;
-        }
-        #policies-status {
-            display: flex;
-            align-items: center;
-            font-size: 0.55rem;
-            margin-top: 0.5rem;
-        }
-        #policies-status input[type="checkbox"] {
-            margin-right: 0.5rem;
-        }
-        #policies-status a {
-            color: #03a9f4;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-        #policies-status.accepted {
-            color: #4caf50;
-        }
-        #policies-status.rejected {
-            color: #e91e63;
-        }
-        #chat-container {
-            display: block;
-            width: 100%;
-            max-width: 400px;
         }
         #messages {
             width: 100%;
@@ -302,8 +160,6 @@
         #users-list li {
             color: #ffeb3b;
             margin: 0.2rem 0;
-            font-size: 0.7rem;
-            text-shadow: 0 0 5px #03a9f4;
         }
         #message-form {
             width: 100%;
@@ -312,16 +168,7 @@
             gap: 0.5rem;
         }
         #message-input {
-            width: 100%;
             height: 60px;
-            padding: 0.75rem;
-            margin: 0;
-            border: 2px solid #03a9f4;
-            border-radius: 4px;
-            background-color: #1a237e;
-            color: #fff;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.8rem;
             resize: none;
         }
         #message-buttons {
@@ -330,39 +177,13 @@
             gap: 0.5rem;
         }
         @media (max-width: 640px) {
-            body {
-                padding: 5px;
-            }
-            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #withdraw-form {
-                margin-top: 0.5rem;
-                max-width: 90%;
-            }
-            #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form {
-                padding: 0.5rem;
-            }
-            #pot-display {
-                width: 120px;
-                height: 120px;
-                font-size: 1rem;
-            }
-            .button, #compete-button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel {
-                padding: 0.5rem;
-                font-size: 0.7rem;
-            }
-            #messages, #users-list {
-                padding: 0.5rem;
-            }
-            #message-input {
-                height: 50px;
-                font-size: 0.7rem;
-            }
-            #policies-content {
-                max-height: 300px;
-                font-size: 0.55rem;
-            }
-            #policies-status {
-                font-size: 0.5rem;
-            }
+            body { padding: 5px; }
+            #auth-container, #game-container, #chat-container { max-width: 90%; }
+            #auth-form, #chat-container { padding: 0.5rem; }
+            #pot-display { width: 120px; height: 120px; font-size: 1rem; }
+            .button, #compete-button, #send-button, #record-button { padding: 0.5rem; font-size: 0.7rem; }
+            #messages, #users-list { padding: 0.5rem; }
+            #message-input { height: 50px; font-size: 0.7rem; }
         }
     </style>
 </head>
@@ -376,33 +197,7 @@
             <input type="password" id="auth-confirm-password" placeholder="Confirmar Contraseña" style="display: none;" required>
             <button id="auth-submit">Iniciar Sesión</button>
             <p id="auth-toggle">¿No tienes cuenta? Regístrate</p>
-            <p id="forgot-password" style="display: block;"><a href="javascript:void(0)">¿Olvidaste tu contraseña? Click aquí</a></p>
             <p id="auth-message"></p>
-        </div>
-    </div>
-
-    <!-- Políticas -->
-    <div id="policies-container">
-        <div id="policies-form">
-            <h2>Políticas y Condiciones</h2>
-            <div id="policies-content">
-                <p><strong>Última actualización: 2 de mayo de 2025</strong></p>
-                <p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo. Al usar esta plataforma, aceptas los siguientes términos y condiciones:</p>
-                <p>1. <strong>Elegibilidad</strong>: Debes ser mayor de 18 años y residir en una jurisdicción donde el uso de Neighborcoin sea legal.</p>
-                <p>2. <strong>Uso de Neighborcoin</strong>: Neighborcoin (Neig) es un token digital utilizado exclusivamente dentro de la plataforma para participar en juegos competitivos. No tiene valor monetario fuera de la plataforma.</p>
-                <p>3. <strong>Recargas y Retiros</strong>: Los usuarios pueden recargar Neig a través de métodos aprobados. Los retiros están sujetos a verificación y pueden tardar hasta 7 días hábiles.</p>
-                <p>4. <strong>Conducta del Usuario</strong>: Está prohibido el uso de bots, trampas, o cualquier comportamiento que comprometa la integridad del juego. Nos reservamos el derecho de suspender cuentas que violen esta política.</p>
-                <p>5. <strong>Privacidad</strong>: Recopilamos datos como nombre ficticio, email, y direcciones MetaMask para procesar transacciones y mejorar la experiencia del usuario. Consulta nuestra Política de Privacidad para más detalles.</p>
-                <p>6. <strong>Limitación de Responsabilidad</strong>: La plataforma no se hace responsable por pérdidas de Neig debido a errores del usuario o fallos técnicos fuera de nuestro control.</p>
-                <p>7. <strong>Modificaciones</strong>: Nos reservamos el derecho de modificar estos términos en cualquier momento. Los usuarios serán notificados de cambios significativos.</p>
-                <p>Para cualquier consulta, contáctanos en support@neigame.com.</p>
-                <p>8. <strong>Propiedad Intelectual</strong>: Todo el contenido de la plataforma, incluyendo diseño, código, y gráficos, es propiedad de Neigame y está protegido por leyes de derechos de autor.</p>
-                <p>9. <strong>Terminación</strong>: Podemos terminar tu acceso a la plataforma si violas estos términos o por cualquier otra razón a nuestra discreción.</p>
-                <p>10. <strong>Ley Aplicable</strong>: Estos términos se rigen por las leyes del país donde está registrada la plataforma.</p>
-            </div>
-            <button id="policies-accept">Aceptar</button>
-            <button id="policies-reject">Rechazar</button>
-            <p id="policies-message"></p>
         </div>
     </div>
 
@@ -411,26 +206,13 @@
         <div id="user-info">
             <p id="username-display">Usuario: </p>
         </div>
-        <div id="coins-info">
-            <p id="coins-display">Saldo: 1000 Neig</p>
-        </div>
-        <button id="stats-button">Estadísticas</button>
         <div id="pot-display">Pozo: 0 Neig</div>
         <div id="timer-display">
             <p>Tiempo Restante: 240 segundos</p>
-            <div id="progress-bar" style="width: 100%; height: 10px; background-color: #1a237e; border-radius: 5px; margin-top: 0.5rem; position: relative;">
-                <div id="progress-bar-fill" style="height: 10px; background-color: #4caf50; border-radius: 5px; width: 100%;"></div>
-            </div>
-            <p id="timer-percentage">100%</p>
         </div>
         <button id="compete-button">Jugar</button>
-        <div id="message-box">Bienvenido al juego. ¡Presiona el botón para competir!</div>
-        <div class="flex flex-wrap justify-center gap-2">
-            <button id="reload-button" class="button">Recargar Neig</button>
-            <button id="withdraw-button" class="button">Retirar Neig</button>
-            <button id="settings-button" class="button">Configuración</button>
-            <button id="logout-button" class="button">Cerrar Sesión</button>
-        </div>
+        <div id="message-box">Bienvenido al juego.</div>
+        <button id="logout-button">Cerrar Sesión</button>
         <div id="chat-container">
             <div id="users-list">Usuarios conectados: 0</div>
             <div id="messages"></div>
@@ -443,123 +225,26 @@
                 <p id="chat-message"></p>
             </form>
         </div>
-        <div id="policies-status">
-            <input type="checkbox" id="policies-checkbox" disabled>
-            <span id="policies-text"></span>
-            <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
-        </div>
-    </div>
-
-    <!-- Configuración -->
-    <div id="settings-container">
-        <div id="settings-form">
-            <h2>Configuración</h2>
-            <input type="text" id="settings-display-name" placeholder="Nombre ficticio">
-            <input type="email" id="settings-email" placeholder="Correo electrónico">
-            <input type="text" id="settings-cvu" placeholder="CVU/CBU o Alias">
-            <input type="text" id="settings-metamask" placeholder="Dirección MetaMask">
-            <button id="settings-save">Guardar</button>
-            <button id="settings-back">Volver</button>
-            <p id="settings-message"></p>
-        </div>
-    </div>
-
-    <!-- Retiro -->
-    <div id="withdraw-form">
-        <h2>Retirar Neig</h2>
-        <input type="number" id="withdraw-amount" placeholder="Cantidad a retirar" min="1" required>
-        <select id="withdraw-currency">
-            <option value="Neig">Neig</option>
-            <option value="Pesos">Pesos</option>
-        </select>
-        <button id="withdraw-submit">Confirmar Retiro</button>
-        <button id="withdraw-cancel">Cancelar</button>
-        <p id="withdraw-message"></p>
-    </div>
-
-    <!-- Recarga -->
-    <div id="reload-form">
-        <h2>Recargar Neig</h2>
-        <input type="number" id="reload-amount" placeholder="Cantidad a recargar" min="1" max="10000" step="1" required>
-        <p id="amount-in-pesos" class="mb-2"></p>
-        <button id="reload-submit">Confirmar Recarga</button>
-        <button id="reload-cancel">Cancelar</button>
-        <p id="reload-message"></p>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            try {
-                if (typeof emailjs !== 'undefined') {
-                    emailjs.init("KWVSgPsdHmSAURvGd"); // Reemplaza con tu Public Key de EmailJS
-                } else {
-                    showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
-                }
-            } catch (error) {
-                console.error('Error al inicializar EmailJS:', error);
-                showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.');
-            }
-
-            const POLICIES_VERSION = "1.0.0";
-            let playerCoins = 1000;
-            let hasParticipated = false;
-            let username = null;
-            let sessionId = null;
-            let pot = 0;
-            let mediaRecorder = null;
-
             // Elementos del DOM
             const authContainer = document.getElementById('auth-container');
             const gameContainer = document.getElementById('game-container');
-            const settingsContainer = document.getElementById('settings-container');
-            const policiesContainer = document.getElementById('policies-container');
-            const withdrawForm = document.getElementById('withdraw-form');
-            const reloadForm = document.getElementById('reload-form');
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
             const authConfirmPassword = document.getElementById('auth-confirm-password');
             const authSubmit = document.getElementById('auth-submit');
             const authToggle = document.getElementById('auth-toggle');
-            const forgotPassword = document.getElementById('forgot-password');
             const authMessage = document.getElementById('auth-message');
-            const statsButton = document.getElementById('stats-button');
+            const usernameDisplay = document.getElementById('username-display');
             const potDisplay = document.getElementById('pot-display');
             const timerDisplay = document.getElementById('timer-display');
             const competeButton = document.getElementById('compete-button');
             const messageBox = document.getElementById('message-box');
-            const reloadButton = document.getElementById('reload-button');
-            const withdrawButton = document.getElementById('withdraw-button');
-            const settingsButton = document.getElementById('settings-button');
             const logoutButton = document.getElementById('logout-button');
-            const usernameDisplay = document.getElementById('username-display');
-            const coinsDisplay = document.getElementById('coins-display');
-            const progressBarFill = document.getElementById('progress-bar-fill');
-            const timerPercentageDisplay = document.getElementById('timer-percentage');
-            const settingsDisplayName = document.getElementById('settings-display-name');
-            const settingsEmail = document.getElementById('settings-email');
-            const settingsCvu = document.getElementById('settings-cvu');
-            const settingsMetamask = document.getElementById('settings-metamask');
-            const settingsSave = document.getElementById('settings-save');
-            const settingsBack = document.getElementById('settings-back');
-            const settingsMessage = document.getElementById('settings-message');
-            const withdrawAmount = document.getElementById('withdraw-amount');
-            const withdrawCurrency = document.getElementById('withdraw-currency');
-            const withdrawSubmit = document.getElementById('withdraw-submit');
-            const withdrawCancel = document.getElementById('withdraw-cancel');
-            const withdrawMessage = document.getElementById('withdraw-message');
-            const reloadAmount = document.getElementById('reload-amount');
-            const amountInPesos = document.getElementById('amount-in-pesos');
-            const reloadSubmit = document.getElementById('reload-submit');
-            const reloadCancel = document.getElementById('reload-cancel');
-            const reloadMessage = document.getElementById('reload-message');
-            const policiesAccept = document.getElementById('policies-accept');
-            const policiesReject = document.getElementById('policies-reject');
-            const policiesMessage = document.getElementById('policies-message');
-            const policiesStatus = document.getElementById('policies-status');
-            const policiesCheckbox = document.getElementById('policies-checkbox');
-            const policiesText = document.getElementById('policies-text');
-            const policiesLink = document.getElementById('policies-link');
             const messages = document.getElementById('messages');
             const messageInput = document.getElementById('message-input');
             const recordButton = document.getElementById('record-button');
@@ -568,10 +253,10 @@
             const usersList = document.getElementById('users-list');
             const chatMessage = document.getElementById('chat-message');
 
+            let username = null;
+            let hasParticipated = false;
+            let mediaRecorder = null;
             let isLoginMode = true;
-
-            // Políticas HTML
-            const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p><p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p></body></html>`;
 
             // Socket.IO
             const socket = io('https://neigame.onrender.com', {
@@ -581,160 +266,62 @@
             });
 
             socket.on('connect', () => {
-                console.log('Conectado al servidor Socket.IO');
+                console.log('Conectado al servidor');
                 if (username) {
-                    getUser(username, user => {
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        socket.emit('join', displayName);
-                    });
+                    socket.emit('join', username);
                 }
             });
 
             socket.on('connect_error', (error) => {
-                console.error('Error de conexión Socket.IO:', error);
-                showMessage('Error al conectar con el servidor. Verifica tu conexión.');
+                console.error('Error de conexión:', error);
+                showMessage('Error al conectar con el servidor.');
             });
 
             // Chat
             socket.on('chat message', ({ user, message, type }) => {
-                console.log('Mensaje recibido:', { user, message, type });
                 addMessage({ user, content: message, type });
             });
 
             socket.on('users update', (users) => {
-                console.log('Usuarios actualizados:', users);
                 updateUsersList(users);
             });
 
             socket.on('user joined', ({ user }) => {
-                console.log('Usuario se unió:', user);
-                addMessage({ user: 'Sistema', content: `${user} se ha unido al chat`, type: 'text' });
+                addMessage({ user: 'Sistema', content: `${user} se ha unido`, type: 'text' });
             });
 
             socket.on('user left', ({ user }) => {
-                console.log('Usuario salió:', user);
-                addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
+                addMessage({ user: 'Sistema', content: `${user} ha abandonado`, type: 'text' });
             });
 
             // Temporizador
-            socket.on('timer update', ({ seconds, pot: serverPot, winner }) => {
-                pot = serverPot;
-                updatePotDisplay();
-                updateTimerDisplay(seconds);
+            socket.on('timer update', ({ seconds, pot, winner }) => {
+                potDisplay.textContent = `Pozo: ${pot} Neig`;
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}`;
                 if (seconds <= 0 && winner) {
-                    if (winner === username) {
-                        const winAmount = Math.round(pot * 0.89);
-                        playerCoins += winAmount;
-                        saveStats(username, winAmount, 0);
-                        updateUserCoins(username, playerCoins);
-                        showMessage(`¡Felicidades! Has ganado ${winAmount} Neig.`);
-                    } else {
-                        if (hasParticipated) {
-                            saveStats(username, 0, 100);
-                        }
-                        showMessage(`El tiempo se agotó. ${winner} ganó ${Math.round(pot * 0.89)} Neig.`);
-                    }
+                    showMessage(`¡${winner} ganó ${Math.round(pot * 0.89)} Neig!`);
                     hasParticipated = false;
-                    updatePlayerInfo();
-                    if (competeButton) {
-                        competeButton.disabled = false;
-                        competeButton.textContent = 'Jugar';
-                    }
+                    competeButton.disabled = false;
                 }
             });
 
-            // Estadísticas
-            function saveStats(username, wonAmount, lostAmount) {
-                try {
-                    const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
-                    if (!stats[username]) {
-                        stats[username] = { wins: 0, losses: 0, totalWon: 0, totalLost: 0, lastWin: null };
-                    }
-                    if (wonAmount > 0) {
-                        stats[username].wins += 1;
-                        stats[username].totalWon += wonAmount;
-                        stats[username].lastWin = new Date().toISOString();
-                        let recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
-                        recentWinners.unshift({ username, amount: wonAmount, date: new Date().toISOString() });
-                        if (recentWinners.length > 20) recentWinners = recentWinners.slice(0, 20);
-                        localStorage.setItem('recentWinners', JSON.stringify(recentWinners));
-                    }
-                    if (lostAmount > 0) {
-                        stats[username].losses += 1;
-                        stats[username].totalLost += lostAmount;
-                    }
-                    localStorage.setItem('gameStats', JSON.stringify(stats));
-                } catch (error) {
-                    console.error('Error al guardar estadísticas:', error);
-                }
+            // Funciones de Mensajes
+            function showMessage(message) {
+                messageBox.textContent = message;
             }
 
-            function getStatsHtml() {
-                try {
-                    const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
-                    const recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
-                    const statsArray = Object.entries(stats);
-                    const topWinners = statsArray.sort((a, b) => b[1].totalWon - a[1].totalWon).slice(0, 20);
-                    const topLosers = statsArray.sort((a, b) => b[1].totalLost - a[1].totalLost).slice(0, 20);
-                    let html = `
-                        <!DOCTYPE html>
-                        <html lang="es">
-                        <head>
-                            <meta charset="UTF-8">
-                            <title>Estadísticas</title>
-                            <style>
-                                body { font-family: Arial, sans-serif; background: #000; color: #fff; padding: 20px; }
-                                h1, h2 { color: #ffeb3b; }
-                                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                                th, td { border: 1px solid #ffeb3b; padding: 8px; text-align: left; }
-                                th { background: #e91e63; }
-                            </style>
-                        </head>
-                        <body>
-                            <h1>Estadísticas del Juego</h1>
-                            <h2>Top 20 Ganadores</h2>
-                            <table>
-                                <tr><th>Usuario</th><th>Total Ganado (Neig)</th><th>Victorias</th></tr>
-                    `;
-                    topWinners.forEach(([user, data]) => {
-                        html += `<tr><td>${user}</td><td>${data.totalWon}</td><td>${data.wins}</td></tr>`;
-                    });
-                    html += `
-                            </table>
-                            <h2>Top 20 Perdedores</h2>
-                            <table>
-                                <tr><th>Usuario</th><th>Total Perdido (Neig)</th><th>Derrotas</th></tr>
-                    `;
-                    topLosers.forEach(([user, data]) => {
-                        html += `<tr><td>${user}</td><td>${data.totalLost}</td><td>${data.losses}</td></tr>`;
-                    });
-                    html += `
-                            </table>
-                            <h2>Últimos 20 Ganadores</h2>
-                            <table>
-                                <tr><th>Usuario</th><th>Cantidad (Neig)</th><th>Fecha</th></tr>
-                    `;
-                    recentWinners.forEach(winner => {
-                        html += `<tr><td>${winner.username}</td><td>${winner.amount}</td><td>${new Date(winner.date).toLocaleString()}</td></tr>`;
-                    });
-                    html += `
-                            </table>
-                        </body>
-                        </html>
-                    `;
-                    return html;
-                } catch (error) {
-                    console.error('Error al generar estadísticas:', error);
-                    return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Error al cargar estadísticas</h1></body></html>';
-                }
+            function showAuthMessage(message) {
+                authMessage.textContent = message;
             }
 
-            // Funciones de Chat
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
             }
 
+            // Funciones de Chat
             function addMessage({ user, content, type = 'text' }) {
                 const div = document.createElement('div');
                 div.className = `message ${type}`;
@@ -753,38 +340,29 @@
 
             function updateUsersList(users) {
                 usersList.innerHTML = `Usuarios conectados: ${users.length}`;
-                if (users.length > 0) {
-                    const ul = document.createElement('ul');
-                    ul.style.listStyle = 'none';
-                    ul.style.padding = '0.5rem 0';
-                    users.forEach(user => {
-                        const li = document.createElement('li');
-                        li.textContent = user;
-                        li.style.color = '#ffeb3b';
-                        li.style.margin = '0.2rem 0';
-                        ul.appendChild(li);
-                    });
-                    usersList.appendChild(ul);
-                }
+                const ul = document.createElement('ul');
+                users.forEach(user => {
+                    const li = document.createElement('li');
+                    li.textContent = user;
+                    ul.appendChild(li);
+                });
+                usersList.appendChild(ul);
             }
 
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const message = messageInput.value.trim();
                 if (message && username) {
-                    getUser(username, user => {
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        socket.emit('chat message', { user: displayName, message, type: 'text' });
-                        messageInput.value = '';
-                    });
+                    socket.emit('chat message', { user: username, message, type: 'text' });
+                    messageInput.value = '';
                 } else {
-                    showChatMessage('Debes iniciar sesión para enviar mensajes.');
+                    showChatMessage('Inicia sesión para enviar mensajes.');
                 }
             });
 
             recordButton.addEventListener('click', async () => {
                 if (!username) {
-                    showChatMessage('Debes iniciar sesión para grabar audio.');
+                    showChatMessage('Inicia sesión para grabar audio.');
                     return;
                 }
                 if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -797,13 +375,10 @@
                             const blob = new Blob(chunks, { type: 'audio/webm' });
                             const reader = new FileReader();
                             reader.onload = () => {
-                                getUser(username, user => {
-                                    const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                                    socket.emit('chat message', {
-                                        user: displayName,
-                                        message: reader.result,
-                                        type: 'audio'
-                                    });
+                                socket.emit('chat message', {
+                                    user: username,
+                                    message: reader.result,
+                                    type: 'audio'
                                 });
                             };
                             reader.readAsDataURL(blob);
@@ -823,65 +398,25 @@
                 }
             });
 
-            // Funciones de Mensajes
-            function showAuthMessage(message) {
-                authMessage.textContent = message;
-            }
-
-            function showMessage(message) {
-                messageBox.textContent = message;
-                while (messageBox.childNodes.length > 1) {
-                    messageBox.removeChild(messageBox.lastChild);
-                }
-            }
-
-            function showSettingsMessage(message) {
-                settingsMessage.textContent = message;
-            }
-
-            function showWithdrawMessage(message) {
-                withdrawMessage.textContent = message;
-            }
-
-            function showReloadMessage(message) {
-                reloadMessage.textContent = message;
-            }
-
-            function showPoliciesMessage(message) {
-                policiesMessage.textContent = message;
-            }
-
             // Gestión de Usuarios
-            function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    users[username] = { password, coins, settings, policiesAccepted, policiesVersion };
-                    localStorage.setItem('users', JSON.stringify(users));
-                } catch (error) {
-                    console.error('Error al guardar usuario:', error);
-                    showAuthMessage('Error al guardar datos del usuario.');
-                }
+            function saveUser(username, password) {
+                const users = JSON.parse(localStorage.getItem('users') || '{}');
+                users[username] = { password };
+                localStorage.setItem('users', JSON.stringify(users));
             }
 
             function getUser(username, callback) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    callback(users[username] || {});
-                } catch (error) {
-                    console.error('Error en getUser:', error);
-                    callback({});
-                }
+                const users = JSON.parse(localStorage.getItem('users') || '{}');
+                callback(users[username] || {});
             }
 
             function loginUser(username, password, callback) {
                 getUser(username, user => {
                     if (user && user.password === password) {
-                        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                        localStorage.setItem('session_' + username, sessionId);
                         localStorage.setItem('currentUser', username);
-                        callback({ success: true, sessionId, policiesAccepted: user.policiesAccepted, policiesVersion: user.policiesVersion });
+                        callback(true);
                     } else {
-                        callback({ success: false });
+                        callback(false);
                     }
                 });
             }
@@ -892,56 +427,10 @@
                         callback(false);
                     } else {
                         saveUser(username, password);
-                        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                        localStorage.setItem('session_' + username, sessionId);
                         localStorage.setItem('currentUser', username);
                         callback(true);
                     }
                 });
-            }
-
-            function checkSession(username) {
-                return localStorage.getItem('session_' + username);
-            }
-
-            function updateUserCoins(username, coins) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].coins = coins;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar monedas:', error);
-                    showMessage('Error al actualizar saldo.');
-                }
-            }
-
-            function updateUserSettings(username, settings) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].settings = settings;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar configuración:', error);
-                    showSettingsMessage('Error al guardar configuración.');
-                }
-            }
-
-            function updateUserPolicies(username, accepted, version) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].policiesAccepted = accepted;
-                        users[username].policiesVersion = version;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar políticas:', error);
-                    showPoliciesMessage('Error al actualizar políticas.');
-                }
             }
 
             // Autenticación
@@ -951,7 +440,7 @@
                 const confirmPasswordInput = authConfirmPassword.value.trim();
 
                 if (!usernameInput || !passwordInput) {
-                    showAuthMessage('Por favor, completa todos los campos.');
+                    showAuthMessage('Completa todos los campos.');
                     return;
                 }
 
@@ -961,17 +450,12 @@
                 }
 
                 if (isLoginMode) {
-                    loginUser(usernameInput, passwordInput, result => {
-                        if (result.success) {
+                    loginUser(usernameInput, passwordInput, success => {
+                        if (success) {
                             username = usernameInput;
-                            sessionId = result.sessionId;
                             authContainer.classList.remove('active');
-                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
-                                gameContainer.classList.add('active');
-                                initializeGame();
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
+                            gameContainer.classList.add('active');
+                            initializeGame();
                         } else {
                             showAuthMessage('Usuario o contraseña incorrectos.');
                         }
@@ -981,7 +465,8 @@
                         if (success) {
                             username = usernameInput;
                             authContainer.classList.remove('active');
-                            policiesContainer.classList.add('active');
+                            gameContainer.classList.add('active');
+                            initializeGame();
                         } else {
                             showAuthMessage('El usuario ya existe.');
                         }
@@ -995,379 +480,49 @@
                 authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
                 authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
                 authConfirmPassword.style.display = isLoginMode ? 'none' : 'block';
-                forgotPassword.style.display = isLoginMode ? 'block' : 'none';
                 showAuthMessage('');
                 authUsername.value = '';
                 authPassword.value = '';
                 authConfirmPassword.value = '';
             }
 
-            // Políticas
-            function handlePoliciesAccept() {
-                updateUserPolicies(username, true, POLICIES_VERSION);
-                policiesContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                initializeGame();
-            }
-
-            function handlePoliciesReject() {
-                updateUserPolicies(username, false, POLICIES_VERSION);
-                policiesContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                showMessage('Has rechazado las Políticas y Condiciones. El botón "Jugar" está bloqueado.');
-                initializeGame();
-            }
-
-            function updatePoliciesStatus() {
-                getUser(username, user => {
-                    if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                        policiesStatus.classList.remove('rejected');
-                        policiesStatus.classList.add('accepted');
-                        policiesCheckbox.checked = true;
-                        policiesText.textContent = 'Ud. aceptó las ';
-                    } else {
-                        policiesStatus.classList.remove('accepted');
-                        policiesStatus.classList.add('rejected');
-                        policiesCheckbox.checked = false;
-                        policiesText.textContent = 'Ud. no aceptó las ';
-                    }
-                });
-            }
-
-            function showPoliciesWindow() {
-                try {
-                    const policiesWindow = window.open('', '_blank');
-                    if (policiesWindow) {
-                        policiesWindow.document.write(policiesHtml);
-                        policiesWindow.document.close();
-                    } else {
-                        showMessage('No se pudo abrir la ventana de políticas. Desactiva el bloqueador de ventanas emergentes.');
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(policiesHtml);
-                        const link = document.createElement('a');
-                        link.href = dataUrl;
-                        link.download = 'politicas_y_condiciones.html';
-                        link.textContent = 'Descargar Políticas';
-                        link.style.color = '#03a9f4';
-                        link.style.textDecoration = 'underline';
-                        link.style.fontSize = '0.7rem';
-                        messageBox.appendChild(document.createElement('br'));
-                        messageBox.appendChild(link);
-                    }
-                } catch (error) {
-                    console.error('Error al mostrar ventana de políticas:', error);
-                    showMessage('Error al mostrar políticas.');
-                }
-            }
-
-            // Estadísticas
-            function showStatsWindow() {
-                try {
-                    const statsWindow = window.open('', '_blank');
-                    if (statsWindow) {
-                        statsWindow.document.write(getStatsHtml());
-                        statsWindow.document.close();
-                    } else {
-                        showMessage('No se pudo abrir la ventana de estadísticas. Desactiva el bloqueador de ventanas emergentes.');
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(getStatsHtml());
-                        const link = document.createElement('a');
-                        link.href = dataUrl;
-                        link.download = 'estadisticas_juego.html';
-                        link.textContent = 'Descargar Estadísticas';
-                        link.style.color = '#03a9f4';
-                        link.style.textDecoration = 'underline';
-                        link.style.fontSize = '0.7rem';
-                        messageBox.appendChild(document.createElement('br'));
-                        messageBox.appendChild(link);
-                    }
-                } catch (error) {
-                    console.error('Error al mostrar estadísticas:', error);
-                    showMessage('Error al cargar estadísticas.');
-                }
-            }
-
-            // Configuración
-            function loadUserSettings() {
-                getUser(username, user => {
-                    if (user && user.settings) {
-                        settingsDisplayName.value = user.settings.displayName || '';
-                        settingsEmail.value = user.settings.email || '';
-                        settingsCvu.value = user.settings.cvu || '';
-                        settingsMetamask.value = user.settings.metamask || '';
-                    }
-                });
-            }
-
-            function handleSettingsSave() {
-                const settings = {
-                    displayName: settingsDisplayName.value.trim(),
-                    email: settingsEmail.value.trim(),
-                    cvu: settingsCvu.value.trim(),
-                    metamask: settingsMetamask.value.trim()
-                };
-                updateUserSettings(username, settings);
-                showSettingsMessage('Configuración guardada exitosamente.');
-                setTimeout(() => {
-                    settingsContainer.classList.remove('active');
-                    gameContainer.classList.add('active');
-                    showSettingsMessage('');
-                }, 1000);
-            }
-
-            function handleSettingsBack() {
-                settingsContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                showSettingsMessage('');
-            }
-
-            // Retiro
-            async function sendWithdrawalNotification(amount, currency, realName, displayName, cvu) {
-                try {
-                    if (typeof emailjs === 'undefined') {
-                        throw new Error('EmailJS no está disponible');
-                    }
-                    const templateParams = {
-                        amount: amount,
-                        currency: currency,
-                        real_name: realName,
-                        display_name: displayName || realName,
-                        cvu: cvu || 'No proporcionado',
-                        to_email: 'rod.arena7@gmail.com'
-                    };
-                    await emailjs.send('YOUR_EMAILJS_SERVICE_ID', 'YOUR_EMAILJS_TEMPLATE_ID', templateParams);
-                    showWithdrawMessage('Solicitud de retiro enviada.');
-                } catch (error) {
-                    console.error('Error al enviar notificación:', error);
-                    showWithdrawMessage('Error al enviar solicitud de retiro. Verifica la configuración de EmailJS.');
-                }
-            }
-
-            function handleWithdraw() {
-                withdrawForm.classList.add('active');
-                gameContainer.classList.remove('active');
-                withdrawAmount.value = '';
-                withdrawCurrency.value = 'Neig';
-                showWithdrawMessage('');
-            }
-
-            function handleWithdrawSubmit() {
-                const amount = parseInt(withdrawAmount.value);
-                const currency = withdrawCurrency.value;
-                getUser(username, user => {
-                    const settings = user.settings || {};
-                    if (!amount || amount <= 0) {
-                        showWithdrawMessage('Por favor, ingresa una cantidad válida.');
-                        return;
-                    }
-                    if (amount > playerCoins) {
-                        showWithdrawMessage('No tienes suficientes Neig para retirar.');
-                        return;
-                    }
-                    if (!settings.cvu && currency === 'Pesos') {
-                        showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
-                        return;
-                    }
-                    if (!settings.metamask && currency === 'Neig') {
-                        showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
-                        return;
-                    }
-                    playerCoins -= amount;
-                    updateUserCoins(username, playerCoins);
-                    updatePlayerInfo();
-                    sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
-                    withdrawForm.classList.remove('active');
-                    gameContainer.classList.add('active');
-                    showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
-                });
-            }
-
-            function handleWithdrawCancel() {
-                withdrawForm.classList.remove('active');
-                gameContainer.classList.add('active');
-                showWithdrawMessage('');
-            }
-
-            // Recarga con Mercado Pago
-            function handleReload() {
-                reloadForm.classList.add('active');
-                gameContainer.classList.remove('active');
-                reloadAmount.value = '';
-                amountInPesos.textContent = '';
-                showReloadMessage('');
-            }
-
-            reloadAmount.addEventListener('input', () => {
-                const neig = parseInt(reloadAmount.value);
-                if (neig > 0) {
-                    const pesos = neig; // 1 Neig = $1
-                    amountInPesos.textContent = `Monto en pesos: $${pesos}`;
-                } else {
-                    amountInPesos.textContent = '';
-                }
-            });
-
-            reloadSubmit.addEventListener('click', async () => {
-                const neig = parseInt(reloadAmount.value);
-                if (!neig || neig <= 0 || neig > 10000) {
-                    showReloadMessage('Por favor, ingrese un monto entre 1 y 10000 Neig.');
-                    return;
-                }
-
-                const pesos = neig; // 1 Neig = $1
-                showReloadMessage(`Procesando compra de ${neig} Neig por $${pesos}.`);
-                reloadMessage.classList.remove('text-red-600');
-                reloadMessage.classList.add('text-green-600');
-
-                // Enviar notificación por EmailJS
-                try {
-                    const templateParams = {
-                        amount: neig,
-                        pesos: pesos,
-                        user_email: settingsEmail.value || 'usuario@example.com',
-                    };
-                    await emailjs.send('YOUR_EMAILJS_SERVICE_ID', 'YOUR_EMAILJS_TEMPLATE_ID', templateParams);
-                    console.log('Notificación de recarga enviada');
-                } catch (error) {
-                    console.error('Error al enviar notificación de recarga:', error);
-                }
-
-                // Crear preferencia de pago
-                try {
-                    const response = await fetch('/create-preference', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ neig }),
-                    });
-                    const data = await response.json();
-                    if (data.init_point) {
-                        playerCoins += neig; // Actualizar monedas localmente
-                        updateUserCoins(username, playerCoins);
-                        updatePlayerInfo();
-                        setTimeout(() => {
-                            window.location.href = data.init_point;
-                        }, 2000);
-                    } else {
-                        throw new Error(data.error || 'Error al crear preferencia');
-                    }
-                } catch (error) {
-                    console.error('Error al crear preferencia:', error);
-                    showReloadMessage('Error al procesar el pago. Intente de nuevo.');
-                    reloadMessage.classList.add('text-red-600');
-                    reloadMessage.classList.remove('text-green-600');
-                }
-            });
-
-            reloadCancel.addEventListener('click', () => {
-                reloadForm.classList.remove('active');
-                gameContainer.classList.add('active');
-                showReloadMessage('');
-            });
-
             // Juego
-            function updatePotDisplay() {
-                if (potDisplay) {
-                    potDisplay.textContent = `Pozo: ${pot} Neig`;
-                }
-            }
-
-            function updateTimerDisplay(seconds) {
-                if (timerDisplay) {
-                    const minutes = Math.floor(seconds / 60);
-                    const secs = Math.floor(seconds) % 60;
-                    const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 100);
-                    timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
-                    const percentage = Math.max(0, (seconds / 240) * 100);
-                    progressBarFill.style.width = `${percentage}%`;
-                    timerPercentageDisplay.textContent = `${Math.ceil(percentage)}%`;
-                }
-            }
-
-            function updatePlayerInfo() {
-                getUser(username, user => {
-                    const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
-                    usernameDisplay.textContent = `Usuario: ${displayName}`;
-                    coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
-                    competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
-                    updatePoliciesStatus();
-                });
-            }
-
             function handleCompete() {
-                getUser(username, user => {
-                    if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                        showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
-                        return;
-                    }
-                    if (playerCoins >= 100) {
-                        if (!hasParticipated) {
-                            playerCoins -= 100;
-                            pot += 100;
-                            updateUserCoins(username, playerCoins);
-                            updatePlayerInfo();
-                            updatePotDisplay();
-                            hasParticipated = true;
-                            competeButton.disabled = true;
-                            competeButton.textContent = 'Esperando...';
-                            socket.emit('compete', { username, amount: 100 });
-                            showMessage('Has apostado 100 Neig.');
-                        } else {
-                            showMessage('Ya has participado en esta ronda.');
-                        }
-                    } else {
-                        showMessage('No tienes suficientes Neig para participar.');
-                    }
-                });
+                if (!hasParticipated) {
+                    socket.emit('compete', { username });
+                    hasParticipated = true;
+                    competeButton.disabled = true;
+                    showMessage('Has participado en la ronda.');
+                } else {
+                    showMessage('Ya participaste en esta ronda.');
+                }
             }
 
             function handleLogout() {
                 socket.emit('leave', username);
                 localStorage.removeItem('currentUser');
-                localStorage.removeItem('session_' + username);
                 authContainer.classList.add('active');
                 gameContainer.classList.remove('active');
-                showAuthMessage('Sesión cerrada.');
                 username = null;
-                playerCoins = 1000;
-                isLoginMode = true;
-                authTitle.textContent = 'Iniciar Sesión';
-                authSubmit.textContent = 'Iniciar Sesión';
-                authToggle.textContent = '¿No tienes cuenta? Regístrate';
-                authUsername.value = '';
-                authPassword.value = '';
-                authConfirmPassword.value = '';
+                hasParticipated = false;
+                showAuthMessage('Sesión cerrada.');
             }
 
             function initializeGame() {
-                if (!checkSession(username)) {
-                    handleLogout();
-                    showAuthMessage('Sesión iniciada en otro dispositivo.');
-                    return;
-                }
-                getUser(username, user => {
-                    playerCoins = user.coins || 1000;
-                    const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                    socket.emit('join', displayName);
-                    updatePlayerInfo();
-                    updatePotDisplay();
-                    showMessage(`¡Bienvenido, ${username}!`);
-                });
+                usernameDisplay.textContent = `Usuario: ${username}`;
+                socket.emit('join', username);
+                showMessage(`¡Bienvenido, ${username}!`);
             }
 
             // Verificar usuario existente
             const currentUser = localStorage.getItem('currentUser');
             if (currentUser) {
                 getUser(currentUser, user => {
-                    if (user && checkSession(currentUser)) {
+                    if (user && user.password) {
                         username = currentUser;
-                        playerCoins = user.coins || 1000;
                         authContainer.classList.remove('active');
-                        if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                            gameContainer.classList.add('active');
-                            initializeGame();
-                        } else {
-                            policiesContainer.classList.add('active');
-                        }
+                        gameContainer.classList.add('active');
+                        initializeGame();
                     } else {
                         localStorage.removeItem('currentUser');
                         showAuthMessage('Inicia sesión nuevamente.');
@@ -1378,38 +533,9 @@
             // Event Listeners
             authSubmit.addEventListener('click', handleAuthSubmit);
             authToggle.addEventListener('click', toggleAuthMode);
-            authPassword.addEventListener('keypress', e => {
-                if (e.key === 'Enter') handleAuthSubmit();
-            });
-            forgotPassword.addEventListener('click', () => {
-                showAuthMessage('Función de recuperación de contraseña no implementada. Contacta al soporte.');
-            });
             competeButton.addEventListener('click', handleCompete);
-            reloadButton.addEventListener('click', handleReload);
-            withdrawButton.addEventListener('click', handleWithdraw);
-            settingsButton.addEventListener('click', () => {
-                gameContainer.classList.remove('active');
-                settingsContainer.classList.add('active');
-                loadUserSettings();
-            });
             logoutButton.addEventListener('click', handleLogout);
-            settingsSave.addEventListener('click', handleSettingsSave);
-            settingsBack.addEventListener('click', handleSettingsBack);
-            withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
-            withdrawCancel.addEventListener('click', handleWithdrawCancel);
-            policiesAccept.addEventListener('click', handlePoliciesAccept);
-            policiesReject.addEventListener('click', handlePoliciesReject);
-            policiesLink.addEventListener('click', showPoliciesWindow);
-            statsButton.addEventListener('click', showStatsWindow);
-
-            // Service Worker para PWA
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(error => {
-                    console.error('Error al registrar service worker:', error);
-                });
-            }
         });
     </script>
 </body>
 </html>
-                   
