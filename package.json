@@ -4,11 +4,17 @@
   "description": "Juego de competencia con Neighborcoin",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "npx tailwindcss -i ./styles.css -o ./public/output.css --minify"
   },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.5",
     "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.31",
+    "autoprefixer": "^10.4.16"
   }
 }
