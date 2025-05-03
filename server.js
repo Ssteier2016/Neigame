@@ -3,7 +3,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const mercadopago = require('mercadopago');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,55 +14,13 @@ const io = new Server(server, {
     path: '/socket.io'
 });
 
-// Configurar Mercado Pago
-mercadopago.configure({
-    access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'TU_ACCESS_TOKEN',
-});
-
 app.use(cors());
-app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Servir index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Endpoint para crear preferencia de pago
-app.post('/create-preference', async (req, res) => {
-    try {
-        const { neig } = req.body;
-        if (!neig || neig <= 0) {
-            return res.status(400).json({ error: 'Monto inválido' });
-        }
-
-        const pesos = parseFloat(neig); // 1 Neig = $1
-        const preference = {
-            items: [
-                {
-                    title: 'Neighborcoin',
-                    quantity: 1,
-                    unit_price: pesos,
-                    currency_id: 'ARS',
-                },
-            ],
-            back_urls: {
-                success: 'https://neigame.onrender.com/success',
-                failure: 'https://neigame.onrender.com/failure',
-                pending: 'https://neigame.onrender.com/pending',
-            },
-            auto_return: 'approved',
-        };
-
-        const response = await mercadopago.preferences.create(preference);
-        res.json({ init_point: response.body.init_point });
-    } catch (error) {
-        console.error('Error al crear preferencia:', error);
-        res.status(500).json({ error: 'Error al crear preferencia' });
-    }
-});
-
-// Socket.IO
 let pot = 0;
 let players = [];
 let timer = 240;
@@ -86,6 +43,20 @@ function resetGame() {
     timer = 240;
 }
 
+function startTimer() {
+    if (!interval) {
+        interval = setInterval(() => {
+            timer -= 0.01;
+            io.emit('timer update', { seconds: timer, pot });
+            if (timer <= 0) {
+                resetGame();
+                clearInterval(interval);
+                interval = null;
+            }
+        }, 10);
+    }
+}
+
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
 
@@ -94,30 +65,20 @@ io.on('connection', (socket) => {
         users.add(username);
         io.emit('users update', Array.from(users));
         io.emit('user joined', { user: username });
-        console.log('Usuario unido:', username, 'Usuarios totales:', Array.from(users));
+        console.log('Usuario unido:', username);
     });
 
-    socket.on('compete', ({ username, amount }) => {
+    socket.on('compete', ({ username }) => {
         if (!players.find(p => p.username === username)) {
             players.push({ username, socketId: socket.id });
-            pot += amount;
+            pot += 100;
+            timer = 240; // Reiniciar temporizador al participar
             io.emit('timer update', { seconds: timer, pot });
-            if (!interval) {
-                interval = setInterval(() => {
-                    timer -= 0.01;
-                    io.emit('timer update', { seconds: timer, pot });
-                    if (timer <= 0) {
-                        resetGame();
-                        clearInterval(interval);
-                        interval = null;
-                    }
-                }, 10);
-            }
+            startTimer();
         }
     });
 
     socket.on('chat message', ({ user, message, type }) => {
-        console.log('Mensaje emitido:', { user, message, type });
         io.emit('chat message', { user, message, type });
     });
 
@@ -125,16 +86,15 @@ io.on('connection', (socket) => {
         users.delete(username);
         io.emit('user left', { user: username });
         io.emit('users update', Array.from(users));
-        console.log('Usuario salió:', username, 'Usuarios totales:', Array.from(users));
+        console.log('Usuario salió:', username);
     });
 
     socket.on('disconnect', () => {
-        console.log('Usuario desconectado:', socket.id);
         if (socket.username) {
             users.delete(socket.username);
             io.emit('user left', { user: socket.username });
             io.emit('users update', Array.from(users));
-            console.log('Usuario desconectado:', socket.username, 'Usuarios totales:', Array.from(users));
+            console.log('Usuario desconectado:', socket.username);
         }
     });
 });
