@@ -12,6 +12,7 @@ const io = new Server(server, {
         origin: '*',
         methods: ['GET', 'POST'],
     },
+    path: '/socket.io'
 });
 
 // Configurar Mercado Pago
