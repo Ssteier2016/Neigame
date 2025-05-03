@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Competencia por Neig con Chat</title>
+    <title>Neigame - Competencia Neighborcoin</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="/output.css" rel="stylesheet">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
     <script>
         function showErrorMessage(elementId, message) {
             const element = document.getElementById(elementId);
@@ -38,7 +41,7 @@
             box-sizing: border-box;
             image-rendering: pixelated;
         }
-        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download {
+        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download, #withdraw-form {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -46,7 +49,7 @@
             width: 100%;
             max-width: 500px;
         }
-        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #app-download.active {
+        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #app-download.active, #withdraw-form.active {
             display: flex;
         }
         #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form, #app-download {
@@ -238,7 +241,7 @@
         #policies-status {
             display: flex;
             align-items: center;
-            font-size: 0.55rem; /* Reducido para que sea más pequeño */
+            font-size: 0.55rem;
             margin-top: 0.5rem;
         }
         #policies-status input[type="checkbox"] {
@@ -326,11 +329,26 @@
             justify-content: center;
             gap: 0.5rem;
         }
+        #install-banner {
+            z-index: 1000;
+            display: none;
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 1rem;
+            border: 4px solid #ffeb3b;
+            border-radius: 8px;
+            box-shadow: 0 0 10px #ffeb3b;
+        }
+        #install-banner.active {
+            display: block;
+        }
         @media (max-width: 640px) {
             body {
                 padding: 5px;
             }
-            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download {
+            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download, #withdraw-form {
                 margin-top: 0.5rem;
                 max-width: 90%;
             }
@@ -364,6 +382,7 @@
     </style>
 </head>
 <body>
+    <!-- Autenticación -->
     <div id="auth-container" class="active">
         <div id="auth-form">
             <h2 id="auth-title">Iniciar Sesión</h2>
@@ -376,6 +395,8 @@
             <p id="auth-message"></p>
         </div>
     </div>
+
+    <!-- Políticas -->
     <div id="policies-container">
         <div id="policies-form">
             <h2>Políticas y Condiciones</h2>
@@ -399,11 +420,15 @@
             <p id="policies-message"></p>
         </div>
     </div>
-    <div id="app-download">
-        <h2>Descarga Nuestra App</h2>
-        <p>¡Juega desde tu celular! Descarga la aplicación de Neigame para una mejor experiencia.</p>
-        <button id="app-download-close">Cerrar</button>
+
+    <!-- Descarga de App (PWA) -->
+    <div id="install-banner" class="hidden">
+        <p>¡Instala Neigame en tu pantalla principal!</p>
+        <button id="install-button" class="bg-white text-blue-500 px-4 py-2 mt-2 rounded">Instalar</button>
+        <button onclick="document.getElementById('install-banner').classList.add('hidden')" class="ml-2 text-white">Cerrar</button>
     </div>
+
+    <!-- Juego -->
     <div id="game-container">
         <div id="user-info">
             <p id="username-display">Usuario: </p>
@@ -446,6 +471,8 @@
             <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
         </div>
     </div>
+
+    <!-- Configuración -->
     <div id="settings-container">
         <div id="settings-form">
             <h2>Configuración</h2>
@@ -458,6 +485,8 @@
             <p id="settings-message"></p>
         </div>
     </div>
+
+    <!-- Retiro -->
     <div id="withdraw-form">
         <h2>Retirar Neig</h2>
         <input type="number" id="withdraw-amount" placeholder="Cantidad a retirar" min="1" required>
@@ -469,19 +498,22 @@
         <button id="withdraw-cancel">Cancelar</button>
         <p id="withdraw-message"></p>
     </div>
+
+    <!-- Recarga -->
     <div id="reload-form">
         <h2>Recargar Neig</h2>
-        <input type="number" id="reload-amount" placeholder="Cantidad a recargar" min="1" required>
+        <input type="number" id="reload-amount" placeholder="Cantidad a recargar" min="1" max="10000" step="1" required>
+        <p id="amount-in-pesos" class="mb-2"></p>
         <button id="reload-submit">Confirmar Recarga</button>
         <button id="reload-cancel">Cancelar</button>
         <p id="reload-message"></p>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.')"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (typeof emailjs !== 'undefined') {
-                    emailjs.init("KWVSgPsdHmSAURvGd"); // Reemplaza con tu Public Key de EmailJS
+                    emailjs.init("APP_USR-bb8f1ac4-dc44-4468-ba92-e5662a183d1e"); // Tu Public Key
                 } else {
                     showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
                 }
@@ -496,6 +528,7 @@
             let username = null;
             let sessionId = null;
             let pot = 0;
+            let mediaRecorder = null;
 
             // Elementos del DOM
             const authContainer = document.getElementById('auth-container');
@@ -504,7 +537,7 @@
             const policiesContainer = document.getElementById('policies-container');
             const withdrawForm = document.getElementById('withdraw-form');
             const reloadForm = document.getElementById('reload-form');
-            const appDownload = document.getElementById('app-download');
+            const installBanner = document.getElementById('install-banner');
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
@@ -537,9 +570,9 @@
             const withdrawSubmit = document.getElementById('withdraw-submit');
             const withdrawCancel = document.getElementById('withdraw-cancel');
             const reloadAmount = document.getElementById('reload-amount');
+            const amountInPesos = document.getElementById('amount-in-pesos');
             const reloadSubmit = document.getElementById('reload-submit');
             const reloadCancel = document.getElementById('reload-cancel');
-            const appDownloadClose = document.getElementById('app-download-close');
             const policiesAccept = document.getElementById('policies-accept');
             const policiesReject = document.getElementById('policies-reject');
             const policiesMessage = document.getElementById('policies-message');
@@ -554,14 +587,15 @@
             const messageForm = document.getElementById('message-form');
             const usersList = document.getElementById('users-list');
             const chatMessage = document.getElementById('chat-message');
+            const installButton = document.getElementById('install-button');
 
             let isLoginMode = true;
-            let mediaRecorder = null;
+            let deferredPrompt;
 
-            // Políticas y estadísticas HTML (abreviado)
+            // Políticas HTML
             const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p><p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p></body></html>`;
 
-            // Configuración del Socket.IO
+            // Socket.IO
             const socket = io('https://neigame.onrender.com', {
                 transports: ['websocket', 'polling'],
                 reconnectionAttempts: 5
@@ -651,7 +685,7 @@
                             </table>
                             <h2>Últimos 20 Ganadores</h2>
                             <table>
-                                <tr><th>Usuario</th><th>Cantidad (   Neig)</th><th>Fecha</th></tr>
+                                <tr><th>Usuario</th><th>Cantidad (Neig)</th><th>Fecha</th></tr>
                     `;
                     recentWinners.forEach(winner => {
                         html += `<tr><td>${winner.username}</td><td>${winner.amount}</td><td>${new Date(winner.date).toLocaleString()}</td></tr>`;
@@ -668,6 +702,7 @@
                 }
             }
 
+            // Chat
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
@@ -797,35 +832,35 @@
                 }
             });
 
+            // Funciones de Mensajes
             function showAuthMessage(message) {
-                if (authMessage) authMessage.textContent = message;
+                authMessage.textContent = message;
             }
 
             function showMessage(message) {
-                if (messageBox) {
-                    messageBox.textContent = message;
-                    while (messageBox.childNodes.length > 1) {
-                        messageBox.removeChild(messageBox.lastChild);
-                    }
+                messageBox.textContent = message;
+                while (messageBox.childNodes.length > 1) {
+                    messageBox.removeChild(messageBox.lastChild);
                 }
             }
 
             function showPoliciesMessage(message) {
-                if (policiesMessage) policiesMessage.textContent = message;
+                policiesMessage.textContent = message;
             }
 
             function showSettingsMessage(message) {
-                if (settingsMessage) settingsMessage.textContent = message;
+                settingsMessage.textContent = message;
             }
 
             function showWithdrawMessage(message) {
-                if (withdrawMessage) withdrawMessage.textContent = message;
+                withdrawMessage.textContent = message;
             }
 
             function showReloadMessage(message) {
-                if (reloadMessage) reloadMessage.textContent = message;
+                reloadMessage.textContent = message;
             }
 
+            // Gestión de Usuarios
             function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
                 try {
                     const users = JSON.parse(localStorage.getItem('users') || '{}');
@@ -849,17 +884,12 @@
 
             function loginUser(username, password, callback) {
                 getUser(username, user => {
-                    try {
-                        if (user && user.password === password) {
-                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                            localStorage.setItem('session_' + username, sessionId);
-                            localStorage.setItem('currentUser', username);
-                            callback({ success: true, sessionId, policiesAccepted: user.policiesAccepted, policiesVersion: user.policiesVersion });
-                        } else {
-                            callback({ success: false });
-                        }
-                    } catch (error) {
-                        console.error('Error en loginUser:', error);
+                    if (user && user.password === password) {
+                        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
+                        localStorage.setItem('session_' + username, sessionId);
+                        localStorage.setItem('currentUser', username);
+                        callback({ success: true, sessionId, policiesAccepted: user.policiesAccepted, policiesVersion: user.policiesVersion });
+                    } else {
                         callback({ success: false });
                     }
                 });
@@ -867,19 +897,14 @@
 
             function registerUser(username, password, callback) {
                 getUser(username, user => {
-                    try {
-                        if (user && user.password) {
-                            callback(false);
-                        } else {
-                            saveUser(username, password);
-                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                            localStorage.setItem('session_' + username, sessionId);
-                            localStorage.setItem('currentUser', username);
-                            callback(true);
-                        }
-                    } catch (error) {
-                        console.error('Error en registerUser:', error);
+                    if (user && user.password) {
                         callback(false);
+                    } else {
+                        saveUser(username, password);
+                        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
+                        localStorage.setItem('session_' + username, sessionId);
+                        localStorage.setItem('currentUser', username);
+                        callback(true);
                     }
                 });
             }
@@ -928,6 +953,7 @@
                 }
             }
 
+            // Autenticación
             function handleAuthSubmit() {
                 const usernameInput = authUsername.value.trim();
                 const passwordInput = authPassword.value.trim();
@@ -951,7 +977,7 @@
                             authContainer.classList.remove('active');
                             if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
                                 gameContainer.classList.add('active');
-                                appDownload.classList.add('active');
+                                installBanner.classList.add('active');
                                 initializeGame();
                             } else {
                                 policiesContainer.classList.add('active');
@@ -986,11 +1012,12 @@
                 authConfirmPassword.value = '';
             }
 
+            // Políticas
             function handlePoliciesAccept() {
                 updateUserPolicies(username, true, POLICIES_VERSION);
                 policiesContainer.classList.remove('active');
                 gameContainer.classList.add('active');
-                appDownload.classList.add('active');
+                installBanner.classList.add('active');
                 initializeGame();
             }
 
@@ -1004,20 +1031,16 @@
 
             function updatePoliciesStatus() {
                 getUser(username, user => {
-                    try {
-                        if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                            policiesStatus.classList.remove('rejected');
-                            policiesStatus.classList.add('accepted');
-                            policiesCheckbox.checked = true;
-                            policiesText.textContent = 'Ud. aceptó las ';
-                        } else {
-                            policiesStatus.classList.remove('accepted');
-                            policiesStatus.classList.add('rejected');
-                            policiesCheckbox.checked = false;
-                            policiesText.textContent = 'Ud. no aceptó las ';
-                        }
-                    } catch (error) {
-                        console.error('Error al actualizar estado de políticas:', error);
+                    if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                        policiesStatus.classList.remove('rejected');
+                        policiesStatus.classList.add('accepted');
+                        policiesCheckbox.checked = true;
+                        policiesText.textContent = 'Ud. aceptó las ';
+                    } else {
+                        policiesStatus.classList.remove('accepted');
+                        policiesStatus.classList.add('rejected');
+                        policiesCheckbox.checked = false;
+                        policiesText.textContent = 'Ud. no aceptó las ';
                     }
                 });
             }
@@ -1047,6 +1070,7 @@
                 }
             }
 
+            // Estadísticas
             function showStatsWindow() {
                 try {
                     const statsWindow = window.open('', '_blank');
@@ -1072,41 +1096,32 @@
                 }
             }
 
+            // Configuración
             function loadUserSettings() {
                 getUser(username, user => {
-                    try {
-                        if (user && user.settings) {
-                            settingsDisplayName.value = user.settings.displayName || '';
-                            settingsEmail.value = user.settings.email || '';
-                            settingsCvu.value = user.settings.cvu || '';
-                            settingsMetamask.value = user.settings.metamask || '';
-                        }
-                    } catch (error) {
-                        console.error('Error al cargar configuración:', error);
-                        showSettingsMessage('Error al cargar configuración.');
+                    if (user && user.settings) {
+                        settingsDisplayName.value = user.settings.displayName || '';
+                        settingsEmail.value = user.settings.email || '';
+                        settingsCvu.value = user.settings.cvu || '';
+                        settingsMetamask.value = user.settings.metamask || '';
                     }
                 });
             }
 
             function handleSettingsSave() {
-                try {
-                    const settings = {
-                        displayName: settingsDisplayName.value.trim(),
-                        email: settingsEmail.value.trim(),
-                        cvu: settingsCvu.value.trim(),
-                        metamask: settingsMetamask.value.trim()
-                    };
-                    updateUserSettings(username, settings);
-                    showSettingsMessage('Configuración guardada exitosamente.');
-                    setTimeout(() => {
-                        settingsContainer.classList.remove('active');
-                        gameContainer.classList.add('active');
-                        showSettingsMessage('');
-                    }, 1000);
-                } catch (error) {
-                    console.error('Error al guardar configuración:', error);
-                    showSettingsMessage('Error al guardar configuración.');
-                }
+                const settings = {
+                    displayName: settingsDisplayName.value.trim(),
+                    email: settingsEmail.value.trim(),
+                    cvu: settingsCvu.value.trim(),
+                    metamask: settingsMetamask.value.trim()
+                };
+                updateUserSettings(username, settings);
+                showSettingsMessage('Configuración guardada exitosamente.');
+                setTimeout(() => {
+                    settingsContainer.classList.remove('active');
+                    gameContainer.classList.add('active');
+                    showSettingsMessage('');
+                }, 1000);
             }
 
             function handleSettingsBack() {
@@ -1115,6 +1130,7 @@
                 showSettingsMessage('');
             }
 
+            // Retiro
             async function sendWithdrawalNotification(amount, currency, realName, displayName, cvu) {
                 try {
                     if (typeof emailjs === 'undefined') {
@@ -1145,39 +1161,34 @@
             }
 
             function handleWithdrawSubmit() {
-                try {
-                    const amount = parseInt(withdrawAmount.value);
-                    const currency = withdrawCurrency.value;
-                    getUser(username, user => {
-                        const settings = user.settings || {};
-                        if (!amount || amount <= 0) {
-                            showWithdrawMessage('Por favor, ingresa una cantidad válida.');
-                            return;
-                        }
-                        if (amount > playerCoins) {
-                            showWithdrawMessage('No tienes suficientes Neig para retirar.');
-                            return;
-                        }
-                        if (!settings.cvu && currency === 'Pesos') {
-                            showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
-                            return;
-                        }
-                        if (!settings.metamask && currency === 'Neig') {
-                            showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
-                            return;
-                        }
-                        playerCoins -= amount;
-                        updateUserCoins(username, playerCoins);
-                        updatePlayerInfo();
-                        sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
-                        withdrawForm.classList.remove('active');
-                        gameContainer.classList.add('active');
-                        showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
-                    });
-                } catch (error) {
-                    console.error('Error al procesar retiro:', error);
-                    showWithdrawMessage('Error al procesar retiro.');
-                }
+                const amount = parseInt(withdrawAmount.value);
+                const currency = withdrawCurrency.value;
+                getUser(username, user => {
+                    const settings = user.settings || {};
+                    if (!amount || amount <= 0) {
+                        showWithdrawMessage('Por favor, ingresa una cantidad válida.');
+                        return;
+                    }
+                    if (amount > playerCoins) {
+                        showWithdrawMessage('No tienes suficientes Neig para retirar.');
+                        return;
+                    }
+                    if (!settings.cvu && currency === 'Pesos') {
+                        showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
+                        return;
+                    }
+                    if (!settings.metamask && currency === 'Neig') {
+                        showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
+                        return;
+                    }
+                    playerCoins -= amount;
+                    updateUserCoins(username, playerCoins);
+                    updatePlayerInfo();
+                    sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
+                    withdrawForm.classList.remove('active');
+                    gameContainer.classList.add('active');
+                    showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
+                });
             }
 
             function handleWithdrawCancel() {
@@ -1186,31 +1197,76 @@
                 showWithdrawMessage('');
             }
 
+            // Recarga con Mercado Pago
             function handleReload() {
                 reloadForm.classList.add('active');
                 gameContainer.classList.remove('active');
                 reloadAmount.value = '';
+                amountInPesos.textContent = '';
                 showReloadMessage('');
             }
 
-            function handleReloadSubmit() {
-                try {
-                    const amount = parseInt(reloadAmount.value);
-                    if (!amount || amount <= 0) {
-                        showReloadMessage('Por favor, ingresa una cantidad válida.');
-                        return;
-                    }
-                    playerCoins += amount;
-                    updateUserCoins(username, playerCoins);
-                    updatePlayerInfo();
-                    reloadForm.classList.remove('active');
-                    gameContainer.classList.add('active');
-                    showMessage(`Se han recargado ${amount} Neig.`);
-                } catch (error) {
-                    console.error('Error al recargar:', error);
-                    showReloadMessage('Error al recargar Neig.');
+            reloadAmount.addEventListener('input', () => {
+                const neig = parseInt(reloadAmount.value);
+                if (neig > 0) {
+                    const pesos = neig; // 1 Neig = $1
+                    amountInPesos.textContent = `Monto en pesos: $${pesos}`;
+                } else {
+                    amountInPesos.textContent = '';
                 }
-            }
+            });
+
+            reloadSubmit.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const neig = parseInt(reloadAmount.value);
+                if (neig <= 0 || neig > 10000) {
+                    showReloadMessage('Por favor, ingrese un monto entre 1 y 10000 Neig.');
+                    return;
+                }
+
+                const pesos = neig;
+                showReloadMessage(`Procesando compra de ${neig} Neig por $${pesos}.`);
+                reloadMessage.classList.remove('hidden');
+                reloadMessage.classList.remove('text-red-600');
+                reloadMessage.classList.add('text-green-600');
+
+                // Enviar notificación por EmailJS
+                const templateParams = {
+                    amount: neig,
+                    pesos: pesos,
+                    user_email: settingsEmail.value || 'usuario@example.com',
+                };
+                try {
+                    await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
+                    console.log('Notificación enviada');
+                } catch (error) {
+                    console.error('Error al enviar notificación:', error);
+                }
+
+                // Crear preferencia de pago
+                try {
+                    const response = await fetch('/create-preference', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ neig }),
+                    });
+                    const data = await response.json();
+                    if (data.init_point) {
+                        setTimeout(() => {
+                            window.location.href = data.init_point;
+                        }, 2000);
+                    } else {
+                        throw new Error(data.error || 'Error al crear preferencia');
+                    }
+                } catch (error) {
+                    console.error('Error al crear preferencia:', error);
+                    showReloadMessage('Error al procesar el pago. Intente de nuevo.');
+                    reloadMessage.classList.add('text-red-600');
+                    reloadMessage.classList.remove('text-green-600');
+                }
+            });
 
             function handleReloadCancel() {
                 reloadForm.classList.remove('active');
@@ -1218,161 +1274,144 @@
                 showReloadMessage('');
             }
 
-            function handleAppDownloadClose() {
-                appDownload.classList.remove('active');
-                gameContainer.classList.add('active');
+            // PWA
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installBanner.classList.add('active');
+            });
+
+            installButton.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        console.log('Usuario aceptó instalar la app');
+                    }
+                    deferredPrompt = null;
+                    installBanner.classList.add('hidden');
+                }
+            });
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch((error) => {
+                    console.error('Error al registrar service worker:', error);
+                });
             }
 
+            // Juego
             function updatePotDisplay() {
-                try {
-                    if (potDisplay) {
-                        potDisplay.textContent = `Pozo: ${pot} Neig`;
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar pozo:', error);
+                if (potDisplay) {
+                    potDisplay.textContent = `Pozo: ${pot} Neig`;
                 }
             }
 
             function updateTimerDisplay(seconds) {
-                try {
-                    if (timerDisplay) {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds) % 60;
-                        const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 100);
-                        timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
-                        const percentage = Math.max(0, (seconds / 240) * 100);
-                        progressBarFill.style.width = `${percentage}%`;
-                        timerPercentageDisplay.textContent = `${Math.ceil(percentage)}%`;
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar temporizador:', error);
+                if (timerDisplay) {
+                    const minutes = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds) % 60;
+                    const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 100);
+                    timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
+                    const percentage = Math.max(0, (seconds / 240) * 100);
+                    progressBarFill.style.width = `${percentage}%`;
+                    timerPercentageDisplay.textContent = `${Math.ceil(percentage)}%`;
                 }
             }
 
             function updatePlayerInfo() {
                 getUser(username, user => {
-                    try {
-                        const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        if (usernameDisplay) {
-                            usernameDisplay.textContent = `Usuario: ${displayName}`;
-                        }
-                        if (coinsDisplay) {
-                            coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
-                        }
-                        if (competeButton) {
-                            competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
-                        }
-                        updatePoliciesStatus();
-                    } catch (error) {
-                        console.error('Error al actualizar info del jugador:', error);
-                    }
+                    const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
+                    usernameDisplay.textContent = `Usuario: ${displayName}`;
+                    coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+                    competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
+                    updatePoliciesStatus();
                 });
             }
 
             function handleCompete() {
                 getUser(username, user => {
-                    try {
-                        if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                            showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
-                            return;
-                        }
-                        if (playerCoins >= 100) {
-                            if (!hasParticipated) {
-                                playerCoins -= 100;
-                                pot += 100;
-                                updateUserCoins(username, playerCoins);
-                                updatePlayerInfo();
-                                updatePotDisplay();
-                                hasParticipated = true;
-                                if (competeButton) {
-                                    competeButton.disabled = true;
-                                    competeButton.textContent = 'Esperando...';
-                                }
-                                socket.emit('compete', { username, amount: 100 });
-                                showMessage('Has apostado 100 Neig.');
-                            } else {
-                                showMessage('Ya has participado en esta ronda.');
-                            }
+                    if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                        showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
+                        return;
+                    }
+                    if (playerCoins >= 100) {
+                        if (!hasParticipated) {
+                            playerCoins -= 100;
+                            pot += 100;
+                            updateUserCoins(username, playerCoins);
+                            updatePlayerInfo();
+                            updatePotDisplay();
+                            hasParticipated = true;
+                            competeButton.disabled = true;
+                            competeButton.textContent = 'Esperando...';
+                            socket.emit('compete', { username, amount: 100 });
+                            showMessage('Has apostado 100 Neig.');
                         } else {
-                            showMessage('No tienes suficientes Neig para participar.');
+                            showMessage('Ya has participado en esta ronda.');
                         }
-                    } catch (error) {
-                        console.error('Error al competir:', error);
-                        showMessage('Error al procesar apuesta.');
+                    } else {
+                        showMessage('No tienes suficientes Neig para participar.');
                     }
                 });
             }
 
             function handleLogout() {
-                try {
-                    socket.emit('leave', username);
-                    localStorage.removeItem('currentUser');
-                    localStorage.removeItem('session_' + username);
-                    authContainer.classList.add('active');
-                    gameContainer.classList.remove('active');
-                    showAuthMessage('Sesión cerrada.');
-                    username = null;
-                    playerCoins = 1000;
-                    isLoginMode = true;
-                    authTitle.textContent = 'Iniciar Sesión';
-                    authSubmit.textContent = 'Iniciar Sesión';
-                    authToggle.textContent = '¿No tienes cuenta? Regístrate';
-                    authUsername.value = '';
-                    authPassword.value = '';
-                    authConfirmPassword.value = '';
-                } catch (error) {
-                    console.error('Error al cerrar sesión:', error);
-                    showAuthMessage('Error al cerrar sesión.');
-                }
+                socket.emit('leave', username);
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('session_' + username);
+                authContainer.classList.add('active');
+                gameContainer.classList.remove('active');
+                showAuthMessage('Sesión cerrada.');
+                username = null;
+                playerCoins = 1000;
+                isLoginMode = true;
+                authTitle.textContent = 'Iniciar Sesión';
+                authSubmit.textContent = 'Iniciar Sesión';
+                authToggle.textContent = '¿No tienes cuenta? Regístrate';
+                authUsername.value = '';
+                authPassword.value = '';
+                authConfirmPassword.value = '';
             }
 
             function initializeGame() {
-                try {
-                    if (!checkSession(username)) {
-                        handleLogout();
-                        showAuthMessage('Sesión iniciada en otro dispositivo.');
-                        return;
-                    }
-                    getUser(username, user => {
-                        playerCoins = user.coins || 1000;
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        socket.emit('join', displayName);
-                        updatePlayerInfo();
-                        updatePotDisplay();
-                        showMessage(`¡Bienvenido, ${username}!`);
-                    });
-                } catch (error) {
-                    console.error('Error al inicializar juego:', error);
-                    showMessage('Error al inicializar el juego.');
+                if (!checkSession(username)) {
+                    handleLogout();
+                    showAuthMessage('Sesión iniciada en otro dispositivo.');
+                    return;
                 }
+                getUser(username, user => {
+                    playerCoins = user.coins || 1000;
+                    const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                    socket.emit('join', displayName);
+                    updatePlayerInfo();
+                    updatePotDisplay();
+                    showMessage(`¡Bienvenido, ${username}!`);
+                });
             }
 
+            // Verificar usuario existente
             const currentUser = localStorage.getItem('currentUser');
             if (currentUser) {
                 getUser(currentUser, user => {
-                    try {
-                        if (user && checkSession(currentUser)) {
-                            username = currentUser;
-                            playerCoins = user.coins || 1000;
-                            authContainer.classList.remove('active');
-                            if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                                gameContainer.classList.add('active');
-                                appDownload.classList.add('active');
-                                initializeGame();
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
+                    if (user && checkSession(currentUser)) {
+                        username = currentUser;
+                        playerCoins = user.coins || 1000;
+                        authContainer.classList.remove('active');
+                        if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                            gameContainer.classList.add('active');
+                            installBanner.classList.add('active');
+                            initializeGame();
                         } else {
-                            localStorage.removeItem('currentUser');
-                            showAuthMessage('Inicia sesión nuevamente.');
+                            policiesContainer.classList.add('active');
                         }
-                    } catch (error) {
-                        console.error('Error al verificar usuario:', error);
-                        showAuthMessage('Error al verificar sesión.');
+                    } else {
+                        localStorage.removeItem('currentUser');
+                        showAuthMessage('Inicia sesión nuevamente.');
                     }
                 });
             }
 
+            // Event Listeners
             authSubmit.addEventListener('click', handleAuthSubmit);
             authToggle.addEventListener('click', toggleAuthMode);
             authPassword.addEventListener('keypress', e => {
@@ -1396,7 +1435,6 @@
             withdrawCancel.addEventListener('click', handleWithdrawCancel);
             reloadSubmit.addEventListener('click', handleReloadSubmit);
             reloadCancel.addEventListener('click', handleReloadCancel);
-            appDownloadClose.addEventListener('click', handleAppDownloadClose);
             policiesAccept.addEventListener('click', handlePoliciesAccept);
             policiesReject.addEventListener('click', handlePoliciesReject);
             policiesLink.addEventListener('click', showPoliciesWindow);
