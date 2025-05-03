@@ -120,21 +120,20 @@
             border: 2px solid #03a9f4;
             background-color: #1a237e;
         }
-        #user-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        #user-info, #coins-info {
             width: 100%;
             margin-bottom: 0.5rem;
             background: rgba(0, 0, 0, 0.7);
             padding: 0.5rem;
             border: 2px solid #ffeb3b;
             border-radius: 4px;
+            text-align: center;
         }
-        #user-info p {
+        #user-info p, #coins-info p {
             font-size: 0.7rem;
             color: #ffeb3b;
             text-shadow: 0 0 5px #e91e63;
+            margin: 0;
         }
         #pot-display {
             font-size: 1.2rem;
@@ -257,6 +256,11 @@
         #policies-status.rejected {
             color: #e91e63;
         }
+        #chat-container {
+            display: block;
+            width: 100%;
+            max-width: 400px;
+        }
         #messages {
             width: 100%;
             max-height: 200px;
@@ -301,6 +305,11 @@
         }
         #message-form {
             width: 100%;
+            display: flex;
+            gap: 0.5rem;
+        }
+        #message-input {
+            flex-grow: 1;
         }
         @media (max-width: 640px) {
             body {
@@ -362,6 +371,8 @@
     <div id="game-container">
         <div id="user-info">
             <p id="username-display">Usuario: </p>
+        </div>
+        <div id="coins-info">
             <p id="coins-display">Saldo: 1000 Neig</p>
         </div>
         <button id="stats-button">Estadísticas</button>
@@ -444,7 +455,6 @@
             const developerPercentage = 0.05;
             const potPercentage = 0.06;
             let pot = 0;
-            let timerInterval = null;
 
             // Elementos del DOM
             const authContainer = document.getElementById('auth-container');
@@ -507,7 +517,7 @@
             const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p>...</body></html>`;
             const statsHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Estadísticas del Juego</h1><p>No hay estadísticas disponibles en modo local.</p></body></html>`;
 
-            // Configuración del chat
+            // Configuración del chat y temporizador
             const socket = io('http://localhost:3000'); // Reemplaza con la URL de tu servidor
             let mediaRecorder = null;
 
@@ -563,6 +573,27 @@
 
             socket.on('user left', ({ user }) => {
                 addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
+            });
+
+            socket.on('timer update', ({ seconds, pot: serverPot, winner }) => {
+                pot = serverPot;
+                updatePotDisplay();
+                updateTimerDisplay(seconds);
+                if (seconds <= 0 && winner) {
+                    if (winner === username) {
+                        playerCoins += Math.round(pot * 0.89);
+                        updateUserCoins(username, playerCoins);
+                        showMessage(`¡Felicidades! Has ganado ${Math.round(pot * 0.89)} Neig.`);
+                    } else {
+                        showMessage(`El tiempo se agotó. ${winner} ganó ${Math.round(pot * 0.89)} Neig.`);
+                    }
+                    hasParticipated = false;
+                    updatePlayerInfo();
+                    if (competeButton) {
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar';
+                    }
+                }
             });
 
             sendButton.addEventListener('click', (e) => {
@@ -1071,49 +1102,6 @@
             }
 
             // Funciones del juego
-            function startTimer() {
-                let seconds = 240;
-                updateTimerDisplay(seconds);
-                timerInterval = setInterval(() => {
-                    seconds -= 0.1;
-                    if (seconds <= 0) {
-                        endTimer();
-                    }
-                    updateTimerDisplay(seconds);
-                }, 100);
-            }
-
-            function endTimer() {
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                }
-                try {
-                    if (hasParticipated) {
-                        const playerWinAmount = Math.round(pot * 0.89);
-                        const developerWinAmount = Math.round(pot * developerPercentage);
-                        const potLeftover = Math.round(pot * potPercentage);
-                        playerCoins += playerWinAmount;
-                        updateUserCoins(username, playerCoins);
-                        showMessage(`¡Felicidades! Has ganado ${playerWinAmount} Neig.`);
-                        pot = potLeftover;
-                        hasParticipated = false;
-                    } else {
-                        showMessage('El tiempo se agotó y nadie participó.');
-                        pot = 0;
-                    }
-                    updatePotDisplay();
-                    updatePlayerInfo();
-                    if (competeButton) {
-                        competeButton.disabled = false;
-                        competeButton.textContent = 'Jugar';
-                    }
-                } catch (error) {
-                    console.error('Error al finalizar temporizador:', error);
-                    showMessage('Error al finalizar ronda.');
-                }
-            }
-
             function handleCompete() {
                 getUser(username, user => {
                     try {
@@ -1133,9 +1121,7 @@
                                     competeButton.disabled = true;
                                     competeButton.textContent = 'Esperando...';
                                 }
-                                if (!timerInterval) {
-                                    startTimer();
-                                }
+                                socket.emit('compete', { username, amount: 100 });
                                 showMessage('Has apostado 100 Neig.');
                             } else {
                                 showMessage('Ya has participado en esta ronda.');
@@ -1179,10 +1165,6 @@
                     authUsername.value = '';
                     authPassword.value = '';
                     authConfirmPassword.value = '';
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                    }
                 } catch (error) {
                     console.error('Error al cerrar sesión:', error);
                     showAuthMessage('Error al cerrar sesión.');
