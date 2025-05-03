@@ -9,18 +9,18 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Permitir todas las conexiones en desarrollo
+    origin: '*',
     methods: ['GET', 'POST'],
   },
 });
 
 // Configurar Mercado Pago
 mercadopago.configure({
-  access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'TU_ACCESS_TOKEN', // Usar variable de entorno
+  access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'TU_ACCESS_TOKEN',
 });
 
 app.use(cors());
-app.use(express.json()); // Para parsear JSON
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Servir index.html
@@ -31,7 +31,7 @@ app.get('/', (req, res) => {
 // Endpoint para crear preferencia de pago
 app.post('/create-preference', async (req, res) => {
   try {
-    const { neig } = req.body; // Monto en Neig enviado desde el frontend
+    const { neig } = req.body;
     if (!neig || neig <= 0) {
       return res.status(400).json({ error: 'Monto inválido' });
     }
@@ -62,24 +62,74 @@ app.post('/create-preference', async (req, res) => {
   }
 });
 
-// Manejar conexiones de Socket.IO
+// Socket.IO
+let pot = 0;
+let players = [];
+let timer = 240;
+let interval;
+
+function selectWinner() {
+  if (players.length > 0) {
+    const winnerIndex = Math.floor(Math.random() * players.length);
+    return players[winnerIndex];
+  }
+  return null;
+}
+
+function resetGame() {
+  const winner = selectWinner();
+  io.emit('timer update', { seconds: 0, pot, winner: winner ? winner.username : null });
+  pot = 0;
+  players = [];
+  timer = 240;
+}
+
 io.on('connection', (socket) => {
   console.log('Usuario conectado:', socket.id);
-  const users = Array.from(io.sockets.sockets.keys());
-  io.emit('users', users);
 
-  socket.on('chatMessage', (msg) => {
-    io.emit('chatMessage', { id: socket.id, message: msg });
+  socket.on('join', (username) => {
+    socket.username = username;
+    const users = Array.from(io.sockets.sockets.values()).map(s => s.username).filter(u => u);
+    io.emit('users update', users);
+    io.emit('user joined', { user: username });
   });
 
-  socket.on('voiceMessage', (audio) => {
-    io.emit('voiceMessage', { id: socket.id, audio });
+  socket.on('compete', ({ username, amount }) => {
+    if (!players.find(p => p.username === username)) {
+      players.push({ username, socketId: socket.id });
+      pot += amount;
+      io.emit('timer update', { seconds: timer, pot });
+      if (!interval) {
+        interval = setInterval(() => {
+          timer -= 0.01;
+          io.emit('timer update', { seconds: timer, pot });
+          if (timer <= 0) {
+            resetGame();
+            clearInterval(interval);
+            interval = null;
+          }
+        }, 10);
+      }
+    }
+  });
+
+  socket.on('chat message', ({ user, message, type }) => {
+    io.emit('chat message', { user, message, type });
+  });
+
+  socket.on('leave', (username) => {
+    io.emit('user left', { user: username });
+    const users = Array.from(io.sockets.sockets.values()).map(s => s.username).filter(u => u && u !== username);
+    io.emit('users update', users);
   });
 
   socket.on('disconnect', () => {
     console.log('Usuario desconectado:', socket.id);
-    const users = Array.from(io.sockets.sockets.keys());
-    io.emit('users', users);
+    if (socket.username) {
+      io.emit('user left', { user: socket.username });
+      const users = Array.from(io.sockets.sockets.values()).map(s => s.username).filter(u => u && u !== socket.username);
+      io.emit('users update', users);
+    }
   });
 });
 
