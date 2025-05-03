@@ -38,7 +38,7 @@
             box-sizing: border-box;
             image-rendering: pixelated;
         }
-        #game-container, #auth-container, #settings-container, #policies-container, #chat-container {
+        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -46,10 +46,10 @@
             width: 100%;
             max-width: 500px;
         }
-        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active {
+        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #app-download.active {
             display: flex;
         }
-        #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container {
+        #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form, #app-download {
             background-color: rgba(0, 0, 0, 0.9);
             padding: 1rem;
             border: 4px solid #ffeb3b;
@@ -59,7 +59,7 @@
             max-width: 400px;
             text-align: center;
         }
-        #auth-form input, #settings-form input, #withdraw-form input, #withdraw-form select, #message-input {
+        #auth-form input, #settings-form input, #withdraw-form input, #withdraw-form select, #message-input, #reload-amount {
             width: 100%;
             padding: 0.5rem;
             margin: 0.5rem 0;
@@ -70,7 +70,7 @@
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7rem;
         }
-        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #stats-button, #record-button, #send-button {
+        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel, #app-download-close {
             padding: 0.5rem 1rem;
             margin: 0.5rem;
             font-size: 0.8rem;
@@ -82,7 +82,7 @@
             transition: background-color 0.3s ease;
             font-family: 'Press Start 2P', cursive;
         }
-        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover {
+        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover, #reload-submit:hover, #reload-cancel:hover, #app-download-close:hover {
             background-color: #c2185b;
         }
         #record-button.recording {
@@ -104,18 +104,18 @@
         #forgot-password a:hover {
             color: #0288d1;
         }
-        #auth-message, #settings-message, #policies-message, #withdraw-message, #chat-message {
+        #auth-message, #settings-message, #policies-message, #withdraw-message, #chat-message, #reload-message {
             color: #ffeb3b;
             font-size: 0.7rem;
             margin-top: 0.5rem;
         }
         #policies-content {
-            max-height: 400px; /* Aumentado para mostrar más texto */
+            max-height: 400px;
             overflow-y: auto;
             text-align: left;
             font-size: 0.6rem;
             margin-bottom: 0.5rem;
-            padding: 0.75rem; /* Más padding para mejor legibilidad */
+            padding: 0.75rem;
             border: 2px solid #03a9f4;
             background-color: #1a237e;
         }
@@ -224,7 +224,7 @@
             opacity: 0.6;
             box-shadow: none;
         }
-        #withdraw-form {
+        #withdraw-form, #reload-form, #app-download {
             position: fixed;
             top: 50%;
             left: 50%;
@@ -232,13 +232,13 @@
             z-index: 1000;
             display: none;
         }
-        #withdraw-form.active {
+        #withdraw-form.active, #reload-form.active, #app-download.active {
             display: block;
         }
         #policies-status {
             display: flex;
             align-items: center;
-            font-size: 0.7rem;
+            font-size: 0.55rem; /* Reducido para que sea más pequeño */
             margin-top: 0.5rem;
         }
         #policies-status input[type="checkbox"] {
@@ -305,12 +305,12 @@
         #message-form {
             width: 100%;
             display: flex;
-            flex-direction: column; /* Cambiado a columna para botones debajo */
+            flex-direction: column;
             gap: 0.5rem;
         }
         #message-input {
             width: 100%;
-            height: 60px; /* Aumentado para cuadro de texto más grande */
+            height: 60px;
             padding: 0.75rem;
             margin: 0;
             border: 2px solid #03a9f4;
@@ -318,8 +318,8 @@
             background-color: #1a237e;
             color: #fff;
             font-family: 'Press Start 2P', cursive;
-            font-size: 0.8rem; /* Ligeramente más grande */
-            resize: none; /* Evita redimensionar manualmente */
+            font-size: 0.8rem;
+            resize: none;
         }
         #message-buttons {
             display: flex;
@@ -330,11 +330,11 @@
             body {
                 padding: 5px;
             }
-            #game-container, #auth-container, #settings-container, #policies-container, #chat-container {
+            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download {
                 margin-top: 0.5rem;
                 max-width: 90%;
             }
-            #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container {
+            #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form, #app-download {
                 padding: 0.5rem;
             }
             #pot-display {
@@ -342,7 +342,7 @@
                 height: 120px;
                 font-size: 1rem;
             }
-            .button, #compete-button, #stats-button, #record-button, #send-button {
+            .button, #compete-button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel, #app-download-close {
                 padding: 0.5rem;
                 font-size: 0.7rem;
             }
@@ -350,12 +350,15 @@
                 padding: 0.5rem;
             }
             #message-input {
-                height: 50px; /* Ajustado para móviles */
+                height: 50px;
                 font-size: 0.7rem;
             }
             #policies-content {
-                max-height: 300px; /* Ajustado para móviles */
+                max-height: 300px;
                 font-size: 0.55rem;
+            }
+            #policies-status {
+                font-size: 0.5rem;
             }
         }
     </style>
@@ -387,7 +390,6 @@
                 <p>6. <strong>Limitación de Responsabilidad</strong>: La plataforma no se hace responsable por pérdidas de Neig debido a errores del usuario o fallos técnicos fuera de nuestro control.</p>
                 <p>7. <strong>Modificaciones</strong>: Nos reservamos el derecho de modificar estos términos en cualquier momento. Los usuarios serán notificados de cambios significativos.</p>
                 <p>Para cualquier consulta, contáctanos en support@neigame.com.</p>
-                <!-- Más texto para probar desplazamiento -->
                 <p>8. <strong>Propiedad Intelectual</strong>: Todo el contenido de la plataforma, incluyendo diseño, código, y gráficos, es propiedad de Neigame y está protegido por leyes de derechos de autor.</p>
                 <p>9. <strong>Terminación</strong>: Podemos terminar tu acceso a la plataforma si violas estos términos o por cualquier otra razón a nuestra discreción.</p>
                 <p>10. <strong>Ley Aplicable</strong>: Estos términos se rigen por las leyes del país donde está registrada la plataforma.</p>
@@ -396,6 +398,11 @@
             <button id="policies-reject">Rechazar</button>
             <p id="policies-message"></p>
         </div>
+    </div>
+    <div id="app-download">
+        <h2>Descarga Nuestra App</h2>
+        <p>¡Juega desde tu celular! Descarga la aplicación de Neigame para una mejor experiencia.</p>
+        <button id="app-download-close">Cerrar</button>
     </div>
     <div id="game-container">
         <div id="user-info">
@@ -462,6 +469,13 @@
         <button id="withdraw-cancel">Cancelar</button>
         <p id="withdraw-message"></p>
     </div>
+    <div id="reload-form">
+        <h2>Recargar Neig</h2>
+        <input type="number" id="reload-amount" placeholder="Cantidad a recargar" min="1" required>
+        <button id="reload-submit">Confirmar Recarga</button>
+        <button id="reload-cancel">Cancelar</button>
+        <p id="reload-message"></p>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.')"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -481,8 +495,6 @@
             let hasParticipated = false;
             let username = null;
             let sessionId = null;
-            const developerPercentage = 0.05;
-            const potPercentage = 0.06;
             let pot = 0;
 
             // Elementos del DOM
@@ -491,6 +503,8 @@
             const settingsContainer = document.getElementById('settings-container');
             const policiesContainer = document.getElementById('policies-container');
             const withdrawForm = document.getElementById('withdraw-form');
+            const reloadForm = document.getElementById('reload-form');
+            const appDownload = document.getElementById('app-download');
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
@@ -522,7 +536,10 @@
             const withdrawCurrency = document.getElementById('withdraw-currency');
             const withdrawSubmit = document.getElementById('withdraw-submit');
             const withdrawCancel = document.getElementById('withdraw-cancel');
-            const withdrawMessage = document.getElementById('withdraw-message');
+            const reloadAmount = document.getElementById('reload-amount');
+            const reloadSubmit = document.getElementById('reload-submit');
+            const reloadCancel = document.getElementById('reload-cancel');
+            const appDownloadClose = document.getElementById('app-download-close');
             const policiesAccept = document.getElementById('policies-accept');
             const policiesReject = document.getElementById('policies-reject');
             const policiesMessage = document.getElementById('policies-message');
@@ -539,13 +556,31 @@
             const chatMessage = document.getElementById('chat-message');
 
             let isLoginMode = true;
+            let mediaRecorder = null;
 
             // Políticas y estadísticas HTML (abreviado)
             const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p><p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p></body></html>`;
 
-            // Configuración del chat y temporizador
-            const socket = io('https://neigame.onrender.com');
-            let mediaRecorder = null;
+            // Configuración del Socket.IO
+            const socket = io('https://neigame.onrender.com', {
+                transports: ['websocket', 'polling'],
+                reconnectionAttempts: 5
+            });
+
+            socket.on('connect', () => {
+                console.log('Conectado al servidor Socket.IO');
+                if (username) {
+                    getUser(username, user => {
+                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                        socket.emit('join', displayName);
+                    });
+                }
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Error de conexión Socket.IO:', error);
+                showMessage('Error al conectar con el servidor. Verifica tu conexión.');
+            });
 
             // Estadísticas
             function saveStats(username, wonAmount, lostAmount) {
@@ -558,7 +593,6 @@
                         stats[username].wins += 1;
                         stats[username].totalWon += wonAmount;
                         stats[username].lastWin = new Date().toISOString();
-                        // Guardar últimos ganadores
                         let recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
                         recentWinners.unshift({ username, amount: wonAmount, date: new Date().toISOString() });
                         if (recentWinners.length > 20) recentWinners = recentWinners.slice(0, 20);
@@ -579,9 +613,7 @@
                     const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
                     const recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
                     const statsArray = Object.entries(stats);
-                    // Top 20 ganadores
                     const topWinners = statsArray.sort((a, b) => b[1].totalWon - a[1].totalWon).slice(0, 20);
-                    // Top 20 perdedores
                     const topLosers = statsArray.sort((a, b) => b[1].totalLost - a[1].totalLost).slice(0, 20);
                     let html = `
                         <!DOCTYPE html>
@@ -619,7 +651,7 @@
                             </table>
                             <h2>Últimos 20 Ganadores</h2>
                             <table>
-                                <tr><th>Usuario</th><th>Cantidad (Neig)</th><th>Fecha</th></tr>
+                                <tr><th>Usuario</th><th>Cantidad (   Neig)</th><th>Fecha</th></tr>
                     `;
                     recentWinners.forEach(winner => {
                         html += `<tr><td>${winner.username}</td><td>${winner.amount}</td><td>${new Date(winner.date).toLocaleString()}</td></tr>`;
@@ -716,7 +748,7 @@
                 }
             });
 
-            sendButton.addEventListener('click', (e) => {
+            messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const message = messageInput.value.trim();
                 if (message) {
@@ -788,6 +820,10 @@
 
             function showWithdrawMessage(message) {
                 if (withdrawMessage) withdrawMessage.textContent = message;
+            }
+
+            function showReloadMessage(message) {
+                if (reloadMessage) reloadMessage.textContent = message;
             }
 
             function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
@@ -915,6 +951,7 @@
                             authContainer.classList.remove('active');
                             if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
                                 gameContainer.classList.add('active');
+                                appDownload.classList.add('active');
                                 initializeGame();
                             } else {
                                 policiesContainer.classList.add('active');
@@ -953,6 +990,7 @@
                 updateUserPolicies(username, true, POLICIES_VERSION);
                 policiesContainer.classList.remove('active');
                 gameContainer.classList.add('active');
+                appDownload.classList.add('active');
                 initializeGame();
             }
 
@@ -1148,6 +1186,43 @@
                 showWithdrawMessage('');
             }
 
+            function handleReload() {
+                reloadForm.classList.add('active');
+                gameContainer.classList.remove('active');
+                reloadAmount.value = '';
+                showReloadMessage('');
+            }
+
+            function handleReloadSubmit() {
+                try {
+                    const amount = parseInt(reloadAmount.value);
+                    if (!amount || amount <= 0) {
+                        showReloadMessage('Por favor, ingresa una cantidad válida.');
+                        return;
+                    }
+                    playerCoins += amount;
+                    updateUserCoins(username, playerCoins);
+                    updatePlayerInfo();
+                    reloadForm.classList.remove('active');
+                    gameContainer.classList.add('active');
+                    showMessage(`Se han recargado ${amount} Neig.`);
+                } catch (error) {
+                    console.error('Error al recargar:', error);
+                    showReloadMessage('Error al recargar Neig.');
+                }
+            }
+
+            function handleReloadCancel() {
+                reloadForm.classList.remove('active');
+                gameContainer.classList.add('active');
+                showReloadMessage('');
+            }
+
+            function handleAppDownloadClose() {
+                appDownload.classList.remove('active');
+                gameContainer.classList.add('active');
+            }
+
             function updatePotDisplay() {
                 try {
                     if (potDisplay) {
@@ -1228,18 +1303,6 @@
                 });
             }
 
-            function handleReload() {
-                try {
-                    playerCoins += 1000;
-                    updateUserCoins(username, playerCoins);
-                    updatePlayerInfo();
-                    showMessage('Se han recargado 1000 Neig.');
-                } catch (error) {
-                    console.error('Error al recargar:', error);
-                    showMessage('Error al recargar Neig.');
-                }
-            }
-
             function handleLogout() {
                 try {
                     socket.emit('leave', username);
@@ -1294,6 +1357,7 @@
                             authContainer.classList.remove('active');
                             if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
                                 gameContainer.classList.add('active');
+                                appDownload.classList.add('active');
                                 initializeGame();
                             } else {
                                 policiesContainer.classList.add('active');
@@ -1330,6 +1394,9 @@
             settingsBack.addEventListener('click', handleSettingsBack);
             withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
             withdrawCancel.addEventListener('click', handleWithdrawCancel);
+            reloadSubmit.addEventListener('click', handleReloadSubmit);
+            reloadCancel.addEventListener('click', handleReloadCancel);
+            appDownloadClose.addEventListener('click', handleAppDownloadClose);
             policiesAccept.addEventListener('click', handlePoliciesAccept);
             policiesReject.addEventListener('click', handlePoliciesReject);
             policiesLink.addEventListener('click', showPoliciesWindow);
