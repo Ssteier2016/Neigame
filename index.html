@@ -41,7 +41,7 @@
             box-sizing: border-box;
             image-rendering: pixelated;
         }
-        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download, #withdraw-form {
+        #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #withdraw-form {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -49,10 +49,10 @@
             width: 100%;
             max-width: 500px;
         }
-        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #app-download.active, #withdraw-form.active {
+        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active, #reload-form.active, #withdraw-form.active {
             display: flex;
         }
-        #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form, #app-download {
+        #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form {
             background-color: rgba(0, 0, 0, 0.9);
             padding: 1rem;
             border: 4px solid #ffeb3b;
@@ -73,7 +73,7 @@
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7rem;
         }
-        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel, #app-download-close {
+        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel {
             padding: 0.5rem 1rem;
             margin: 0.5rem;
             font-size: 0.8rem;
@@ -85,7 +85,7 @@
             transition: background-color 0.3s ease;
             font-family: 'Press Start 2P', cursive;
         }
-        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover, #reload-submit:hover, #reload-cancel:hover, #app-download-close:hover {
+        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover, #reload-submit:hover, #reload-cancel:hover {
             background-color: #c2185b;
         }
         #record-button.recording {
@@ -227,7 +227,7 @@
             opacity: 0.6;
             box-shadow: none;
         }
-        #withdraw-form, #reload-form, #app-download {
+        #withdraw-form, #reload-form {
             position: fixed;
             top: 50%;
             left: 50%;
@@ -235,7 +235,7 @@
             z-index: 1000;
             display: none;
         }
-        #withdraw-form.active, #reload-form.active, #app-download.active {
+        #withdraw-form.active, #reload-form.active {
             display: block;
         }
         #policies-status {
@@ -329,30 +329,15 @@
             justify-content: center;
             gap: 0.5rem;
         }
-        #install-banner {
-            z-index: 1000;
-            display: none;
-            position: fixed;
-            bottom: 1rem;
-            left: 1rem;
-            background-color: rgba(0, 0, 0, 0.9);
-            padding: 1rem;
-            border: 4px solid #ffeb3b;
-            border-radius: 8px;
-            box-shadow: 0 0 10px #ffeb3b;
-        }
-        #install-banner.active {
-            display: block;
-        }
         @media (max-width: 640px) {
             body {
                 padding: 5px;
             }
-            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #app-download, #withdraw-form {
+            #game-container, #auth-container, #settings-container, #policies-container, #chat-container, #reload-form, #withdraw-form {
                 margin-top: 0.5rem;
                 max-width: 90%;
             }
-            #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form, #app-download {
+            #auth-form, #settings-form, #policies-form, #withdraw-form, #chat-container, #reload-form {
                 padding: 0.5rem;
             }
             #pot-display {
@@ -360,7 +345,7 @@
                 height: 120px;
                 font-size: 1rem;
             }
-            .button, #compete-button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel, #app-download-close {
+            .button, #compete-button, #stats-button, #record-button, #send-button, #reload-submit, #reload-cancel {
                 padding: 0.5rem;
                 font-size: 0.7rem;
             }
@@ -419,13 +404,6 @@
             <button id="policies-reject">Rechazar</button>
             <p id="policies-message"></p>
         </div>
-    </div>
-
-    <!-- Descarga de App (PWA) -->
-    <div id="install-banner" class="hidden">
-        <p>¡Instala Neigame en tu pantalla principal!</p>
-        <button id="install-button" class="bg-white text-blue-500 px-4 py-2 mt-2 rounded">Instalar</button>
-        <button onclick="document.getElementById('install-banner').classList.add('hidden')" class="ml-2 text-white">Cerrar</button>
     </div>
 
     <!-- Juego -->
@@ -513,7 +491,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (typeof emailjs !== 'undefined') {
-                    emailjs.init("APP_USR-bb8f1ac4-dc44-4468-ba92-e5662a183d1e"); // Tu Public Key
+                    emailjs.init("KWVSgPsdHmSAURvGd"); // Reemplaza con tu Public Key de EmailJS
                 } else {
                     showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
                 }
@@ -537,7 +515,6 @@
             const policiesContainer = document.getElementById('policies-container');
             const withdrawForm = document.getElementById('withdraw-form');
             const reloadForm = document.getElementById('reload-form');
-            const installBanner = document.getElementById('install-banner');
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
@@ -587,10 +564,8 @@
             const messageForm = document.getElementById('message-form');
             const usersList = document.getElementById('users-list');
             const chatMessage = document.getElementById('chat-message');
-            const installButton = document.getElementById('install-button');
 
             let isLoginMode = true;
-            let deferredPrompt;
 
             // Políticas HTML
             const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p><p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p></body></html>`;
@@ -614,6 +589,54 @@
             socket.on('connect_error', (error) => {
                 console.error('Error de conexión Socket.IO:', error);
                 showMessage('Error al conectar con el servidor. Verifica tu conexión.');
+            });
+
+            // Chat
+            socket.on('chat message', ({ user, message, type }) => {
+                console.log('Mensaje recibido:', { user, message, type });
+                addMessage({ user, content: message, type });
+            });
+
+            socket.on('users update', (users) => {
+                console.log('Usuarios actualizados:', users);
+                updateUsersList(users);
+            });
+
+            socket.on('user joined', ({ user }) => {
+                console.log('Usuario se unió:', user);
+                addMessage({ user: 'Sistema', content: `${user} se ha unido al chat`, type: 'text' });
+            });
+
+            socket.on('user left', ({ user }) => {
+                console.log('Usuario salió:', user);
+                addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
+            });
+
+            // Temporizador
+            socket.on('timer update', ({ seconds, pot: serverPot, winner }) => {
+                pot = serverPot;
+                updatePotDisplay();
+                updateTimerDisplay(seconds);
+                if (seconds <= 0 && winner) {
+                    if (winner === username) {
+                        const winAmount = Math.round(pot * 0.89);
+                        playerCoins += winAmount;
+                        saveStats(username, winAmount, 0);
+                        updateUserCoins(username, playerCoins);
+                        showMessage(`¡Felicidades! Has ganado ${winAmount} Neig.`);
+                    } else {
+                        if (hasParticipated) {
+                            saveStats(username, 0, 100);
+                        }
+                        showMessage(`El tiempo se agotó. ${winner} ganó ${Math.round(pot * 0.89)} Neig.`);
+                    }
+                    hasParticipated = false;
+                    updatePlayerInfo();
+                    if (competeButton) {
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar';
+                    }
+                }
             });
 
             // Estadísticas
@@ -702,7 +725,7 @@
                 }
             }
 
-            // Chat
+            // Funciones de Chat
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
@@ -741,61 +764,25 @@
                 }
             }
 
-            socket.on('chat message', ({ user, message, type }) => {
-                addMessage({ user, content: message, type });
-            });
-
-            socket.on('users update', (users) => {
-                updateUsersList(users);
-            });
-
-            socket.on('user joined', ({ user }) => {
-                addMessage({ user: 'Sistema', content: `${user} se ha unido al chat`, type: 'text' });
-            });
-
-            socket.on('user left', ({ user }) => {
-                addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
-            });
-
-            socket.on('timer update', ({ seconds, pot: serverPot, winner }) => {
-                pot = serverPot;
-                updatePotDisplay();
-                updateTimerDisplay(seconds);
-                if (seconds <= 0 && winner) {
-                    if (winner === username) {
-                        const winAmount = Math.round(pot * 0.89);
-                        playerCoins += winAmount;
-                        saveStats(username, winAmount, 0);
-                        updateUserCoins(username, playerCoins);
-                        showMessage(`¡Felicidades! Has ganado ${winAmount} Neig.`);
-                    } else {
-                        if (hasParticipated) {
-                            saveStats(username, 0, 100);
-                        }
-                        showMessage(`El tiempo se agotó. ${winner} ganó ${Math.round(pot * 0.89)} Neig.`);
-                    }
-                    hasParticipated = false;
-                    updatePlayerInfo();
-                    if (competeButton) {
-                        competeButton.disabled = false;
-                        competeButton.textContent = 'Jugar';
-                    }
-                }
-            });
-
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const message = messageInput.value.trim();
-                if (message) {
+                if (message && username) {
                     getUser(username, user => {
                         const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
                         socket.emit('chat message', { user: displayName, message, type: 'text' });
                         messageInput.value = '';
                     });
+                } else {
+                    showChatMessage('Debes iniciar sesión para enviar mensajes.');
                 }
             });
 
             recordButton.addEventListener('click', async () => {
+                if (!username) {
+                    showChatMessage('Debes iniciar sesión para grabar audio.');
+                    return;
+                }
                 if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -977,7 +964,6 @@
                             authContainer.classList.remove('active');
                             if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
                                 gameContainer.classList.add('active');
-                                installBanner.classList.add('active');
                                 initializeGame();
                             } else {
                                 policiesContainer.classList.add('active');
@@ -1017,7 +1003,6 @@
                 updateUserPolicies(username, true, POLICIES_VERSION);
                 policiesContainer.classList.remove('active');
                 gameContainer.classList.add('active');
-                installBanner.classList.add('active');
                 initializeGame();
             }
 
@@ -1216,31 +1201,29 @@
                 }
             });
 
-            reloadSubmit.addEventListener('submit', async (e) => {
-                e.preventDefault();
+            reloadSubmit.addEventListener('click', async () => {
                 const neig = parseInt(reloadAmount.value);
-                if (neig <= 0 || neig > 10000) {
+                if (!neig || neig <= 0 || neig > 10000) {
                     showReloadMessage('Por favor, ingrese un monto entre 1 y 10000 Neig.');
                     return;
                 }
 
-                const pesos = neig;
+                const pesos = neig; // 1 Neig = $1
                 showReloadMessage(`Procesando compra de ${neig} Neig por $${pesos}.`);
-                reloadMessage.classList.remove('hidden');
                 reloadMessage.classList.remove('text-red-600');
                 reloadMessage.classList.add('text-green-600');
 
                 // Enviar notificación por EmailJS
-                const templateParams = {
-                    amount: neig,
-                    pesos: pesos,
-                    user_email: settingsEmail.value || 'usuario@example.com',
-                };
                 try {
+                    const templateParams = {
+                        amount: neig,
+                        pesos: pesos,
+                        user_email: settingsEmail.value || 'usuario@example.com',
+                    };
                     await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
-                    console.log('Notificación enviada');
+                    console.log('Notificación de recarga enviada');
                 } catch (error) {
-                    console.error('Error al enviar notificación:', error);
+                    console.error('Error al enviar notificación de recarga:', error);
                 }
 
                 // Crear preferencia de pago
@@ -1254,6 +1237,9 @@
                     });
                     const data = await response.json();
                     if (data.init_point) {
+                        playerCoins += neig; // Actualizar monedas localmente
+                        updateUserCoins(username, playerCoins);
+                        updatePlayerInfo();
                         setTimeout(() => {
                             window.location.href = data.init_point;
                         }, 2000);
@@ -1268,36 +1254,11 @@
                 }
             });
 
-            function handleReloadCancel() {
+            reloadCancel.addEventListener('click', () => {
                 reloadForm.classList.remove('active');
                 gameContainer.classList.add('active');
                 showReloadMessage('');
-            }
-
-            // PWA
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                installBanner.classList.add('active');
             });
-
-            installButton.addEventListener('click', async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    if (outcome === 'accepted') {
-                        console.log('Usuario aceptó instalar la app');
-                    }
-                    deferredPrompt = null;
-                    installBanner.classList.add('hidden');
-                }
-            });
-
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch((error) => {
-                    console.error('Error al registrar service worker:', error);
-                });
-            }
 
             // Juego
             function updatePotDisplay() {
@@ -1399,7 +1360,6 @@
                         authContainer.classList.remove('active');
                         if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
                             gameContainer.classList.add('active');
-                            installBanner.classList.add('active');
                             initializeGame();
                         } else {
                             policiesContainer.classList.add('active');
@@ -1433,13 +1393,19 @@
             settingsBack.addEventListener('click', handleSettingsBack);
             withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
             withdrawCancel.addEventListener('click', handleWithdrawCancel);
-            reloadSubmit.addEventListener('click', handleReloadSubmit);
-            reloadCancel.addEventListener('click', handleReloadCancel);
             policiesAccept.addEventListener('click', handlePoliciesAccept);
             policiesReject.addEventListener('click', handlePoliciesReject);
             policiesLink.addEventListener('click', showPoliciesWindow);
             statsButton.addEventListener('click', showStatsWindow);
+
+            // Service Worker para PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(error => {
+                    console.error('Error al registrar service worker:', error);
+                });
+            }
         });
     </script>
 </body>
 </html>
+            
