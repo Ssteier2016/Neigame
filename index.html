@@ -90,11 +90,20 @@
             background-color: #4caf50;
             border-color: #4caf50;
         }
-        #auth-toggle {
+        #auth-toggle, #forgot-password {
             color: #03a9f4;
             cursor: pointer;
             text-decoration: underline;
             font-size: 0.7rem;
+        }
+        #forgot-password {
+            margin-top: 0.5rem;
+        }
+        #forgot-password a {
+            color: #03a9f4;
+        }
+        #forgot-password a:hover {
+            color: #0288d1;
         }
         #auth-message, #settings-message, #policies-message, #withdraw-message, #chat-message {
             color: #ffeb3b;
@@ -280,6 +289,16 @@
             color: #4caf50;
             text-shadow: 0 0 5px #4caf50;
         }
+        #users-list ul {
+            list-style: none;
+            padding: 0.5rem 0;
+        }
+        #users-list li {
+            color: #ffeb3b;
+            margin: 0.2rem 0;
+            font-size: 0.7rem;
+            text-shadow: 0 0 5px #03a9f4;
+        }
         #message-form {
             width: 100%;
         }
@@ -321,8 +340,10 @@
             <h2 id="auth-title">Iniciar Sesión</h2>
             <input type="text" id="auth-username" placeholder="Usuario" required>
             <input type="password" id="auth-password" placeholder="Contraseña" required>
+            <input type="password" id="auth-confirm-password" placeholder="Confirmar Contraseña" style="display: none;" required>
             <button id="auth-submit">Iniciar Sesión</button>
             <p id="auth-toggle">¿No tienes cuenta? Regístrate</p>
+            <p id="forgot-password" style="display: block;"><a href="javascript:void(0)">¿Olvidaste tu contraseña? Click aquí</a></p>
             <p id="auth-message"></p>
         </div>
     </div>
@@ -360,11 +381,6 @@
             <button id="settings-button" class="button">Configuración</button>
             <button id="logout-button" class="button">Cerrar Sesión</button>
         </div>
-        <div id="policies-status">
-            <input type="checkbox" id="policies-checkbox" disabled>
-            <span id="policies-text"></span>
-            <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
-        </div>
         <div id="chat-container">
             <div id="users-list">Usuarios conectados: 0</div>
             <div id="messages"></div>
@@ -374,6 +390,11 @@
                 <button type="submit" id="send-button">Enviar</button>
                 <p id="chat-message"></p>
             </form>
+        </div>
+        <div id="policies-status">
+            <input type="checkbox" id="policies-checkbox" disabled>
+            <span id="policies-text"></span>
+            <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
         </div>
     </div>
     <div id="settings-container">
@@ -434,8 +455,10 @@
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
+            const authConfirmPassword = document.getElementById('auth-confirm-password');
             const authSubmit = document.getElementById('auth-submit');
             const authToggle = document.getElementById('auth-toggle');
+            const forgotPassword = document.getElementById('forgot-password');
             const authMessage = document.getElementById('auth-message');
             const statsButton = document.getElementById('stats-button');
             const potDisplay = document.getElementById('pot-display');
@@ -510,14 +533,20 @@
             }
 
             function updateUsersList(users) {
-                usersList.textContent = `Usuarios conectados: ${users.length}`;
-                const ul = document.createElement('ul');
-                users.forEach(user => {
-                    const li = document.createElement('li');
-                    li.textContent = user;
-                    ul.appendChild(li);
-                });
-                usersList.appendChild(ul);
+                usersList.innerHTML = `Usuarios conectados: ${users.length}`;
+                if (users.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.style.listStyle = 'none';
+                    ul.style.padding = '0.5rem 0';
+                    users.forEach(user => {
+                        const li = document.createElement('li');
+                        li.textContent = user;
+                        li.style.color = '#ffeb3b';
+                        li.style.margin = '0.2rem 0';
+                        ul.appendChild(li);
+                    });
+                    usersList.appendChild(ul);
+                }
             }
 
             socket.on('chat message', ({ user, message, type }) => {
@@ -737,9 +766,15 @@
             function handleAuthSubmit() {
                 const usernameInput = authUsername.value.trim();
                 const passwordInput = authPassword.value.trim();
+                const confirmPasswordInput = authConfirmPassword.value.trim();
 
                 if (!usernameInput || !passwordInput) {
                     showAuthMessage('Por favor, completa todos los campos.');
+                    return;
+                }
+
+                if (!isLoginMode && passwordInput !== confirmPasswordInput) {
+                    showAuthMessage('Las contraseñas no coinciden.');
                     return;
                 }
 
@@ -777,9 +812,12 @@
                 authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
                 authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
                 authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
+                authConfirmPassword.style.display = isLoginMode ? 'none' : 'block';
+                forgotPassword.style.display = isLoginMode ? 'block' : 'none';
                 showAuthMessage('');
                 authUsername.value = '';
                 authPassword.value = '';
+                authConfirmPassword.value = '';
             }
 
             // Funciones de políticas
@@ -1140,6 +1178,7 @@
                     authToggle.textContent = '¿No tienes cuenta? Regístrate';
                     authUsername.value = '';
                     authPassword.value = '';
+                    authConfirmPassword.value = '';
                     if (timerInterval) {
                         clearInterval(timerInterval);
                         timerInterval = null;
@@ -1202,6 +1241,9 @@
             authToggle.addEventListener('click', toggleAuthMode);
             authPassword.addEventListener('keypress', e => {
                 if (e.key === 'Enter') handleAuthSubmit();
+            });
+            forgotPassword.addEventListener('click', () => {
+                showAuthMessage('Función de recuperación de contraseña no implementada. Contacta al soporte.');
             });
             competeButton.addEventListener('click', handleCompete);
             reloadButton.addEventListener('click', handleReload);
