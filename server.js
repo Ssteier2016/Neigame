@@ -1,102 +1,53 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: 'https://neigame.onrender.com',
-        methods: ['GET', 'POST'],
-        credentials: true
-    }
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Permitir todas las conexiones en desarrollo
+    methods: ['GET', 'POST'],
+  },
 });
 
-app.use(cors({
-    origin: 'https://neigame.onrender.com',
-    methods: ['GET', 'POST'],
-    credentials: true
-}));
-app.use(express.static(__dirname));
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
 
-let users = [];
-let pot = 0;
-let timer = null;
-let seconds = 240;
-let participants = [];
+// Servir index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-function startTimer() {
-    if (timer) {
-        clearInterval(timer);
-    }
-    seconds = 240; // Reiniciar a 240 segundos
-    timer = setInterval(() => {
-        seconds -= 0.1;
-        if (seconds <= 0) {
-            endRound();
-        }
-        io.emit('timer update', { seconds, pot, winner: null });
-    }, 100);
-}
-
-function endRound() {
-    clearInterval(timer);
-    timer = null;
-    let winner = null;
-    if (participants.length > 0) {
-        winner = participants[Math.floor(Math.random() * participants.length)];
-        const playerWinAmount = Math.round(pot * 0.89);
-        const potLeftover = Math.round(pot * 0.11); // 11% restante (6% desarrollador + 5% sobrante)
-        pot = potLeftover;
-        participants = [];
-        seconds = 240;
-        io.emit('timer update', { seconds, pot, winner });
-    } else {
-        pot = 0;
-        seconds = 240;
-        io.emit('timer update', { seconds, pot, winner: null });
-    }
-}
-
+// Manejar conexiones de Socket.IO
 io.on('connection', (socket) => {
-    socket.on('join', (username) => {
-        if (!users.includes(username)) {
-            users.push(username);
-            io.emit('user joined', { user: username });
-            io.emit('users update', users);
-        }
-        socket.emit('timer update', { seconds, pot, winner: null });
-    });
+  console.log('Usuario conectado:', socket.id);
 
-    socket.on('chat message', ({ user, message, type }) => {
-        io.emit('chat message', { user, message, type });
-    });
+  // Enviar lista de usuarios conectados
+  const users = Array.from(io.sockets.sockets.keys());
+  io.emit('users', users);
 
-    socket.on('compete', ({ username, amount }) => {
-        if (!users.includes(username)) {
-            users.push(username);
-        }
-        if (!participants.includes(username)) {
-            participants.push(username);
-            pot += amount;
-            startTimer();
-            io.emit('timer update', { seconds, pot, winner: null });
-        }
-    });
+  // Manejar mensajes de chat
+  socket.on('chatMessage', (msg) => {
+    io.emit('chatMessage', { id: socket.id, message: msg });
+  });
 
-    socket.on('leave', (username) => {
-        users = users.filter((u) => u !== username);
-        io.emit('user left', { user: username });
-        io.emit('users update', users);
-    });
+  // Manejar mensajes de voz
+  socket.on('voiceMessage', (audio) => {
+    io.emit('voiceMessage', { id: socket.id, audio });
+  });
 
-    socket.on('disconnect', () => {
-        io.emit('users update', users);
-    });
+  // Manejar desconexión
+  socket.on('disconnect', () => {
+    console.log('Usuario desconectado:', socket.id);
+    const users = Array.from(io.sockets.sockets.keys());
+    io.emit('users', users);
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
