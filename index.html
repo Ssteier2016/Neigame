@@ -27,7 +27,7 @@
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background: url('https://images.unsplash.com/photo-1611345613376-12b6f4a7e6cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background: url('/images/background.jpg') no-repeat center center fixed;
             background-size: cover;
             background-color: #000;
             color: #fff;
@@ -107,7 +107,7 @@
         #forgot-password a:hover {
             color: #0288d1;
         }
-        #auth-message, #settings-message, #policies-message, #withdraw-message, #chat-message, #reload-message {
+        #auth-message, #settings-message, #policies-message, #withdraw-message, #reload-message, #chat-message {
             color: #ffeb3b;
             font-size: 0.7rem;
             margin-top: 0.5rem;
@@ -542,14 +542,17 @@
             const settingsMetamask = document.getElementById('settings-metamask');
             const settingsSave = document.getElementById('settings-save');
             const settingsBack = document.getElementById('settings-back');
+            const settingsMessage = document.getElementById('settings-message');
             const withdrawAmount = document.getElementById('withdraw-amount');
             const withdrawCurrency = document.getElementById('withdraw-currency');
             const withdrawSubmit = document.getElementById('withdraw-submit');
             const withdrawCancel = document.getElementById('withdraw-cancel');
+            const withdrawMessage = document.getElementById('withdraw-message');
             const reloadAmount = document.getElementById('reload-amount');
             const amountInPesos = document.getElementById('amount-in-pesos');
             const reloadSubmit = document.getElementById('reload-submit');
             const reloadCancel = document.getElementById('reload-cancel');
+            const reloadMessage = document.getElementById('reload-message');
             const policiesAccept = document.getElementById('policies-accept');
             const policiesReject = document.getElementById('policies-reject');
             const policiesMessage = document.getElementById('policies-message');
@@ -573,7 +576,8 @@
             // Socket.IO
             const socket = io('https://neigame.onrender.com', {
                 transports: ['websocket', 'polling'],
-                reconnectionAttempts: 5
+                reconnectionAttempts: 5,
+                path: '/socket.io'
             });
 
             socket.on('connect', () => {
@@ -831,10 +835,6 @@
                 }
             }
 
-            function showPoliciesMessage(message) {
-                policiesMessage.textContent = message;
-            }
-
             function showSettingsMessage(message) {
                 settingsMessage.textContent = message;
             }
@@ -845,6 +845,10 @@
 
             function showReloadMessage(message) {
                 reloadMessage.textContent = message;
+            }
+
+            function showPoliciesMessage(message) {
+                policiesMessage.textContent = message;
             }
 
             // Gestión de Usuarios
@@ -1129,7 +1133,7 @@
                         cvu: cvu || 'No proporcionado',
                         to_email: 'rod.arena7@gmail.com'
                     };
-                    await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
+                    await emailjs.send('YOUR_EMAILJS_SERVICE_ID', 'YOUR_EMAILJS_TEMPLATE_ID', templateParams);
                     showWithdrawMessage('Solicitud de retiro enviada.');
                 } catch (error) {
                     console.error('Error al enviar notificación:', error);
@@ -1220,7 +1224,7 @@
                         pesos: pesos,
                         user_email: settingsEmail.value || 'usuario@example.com',
                     };
-                    await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
+                    await emailjs.send('YOUR_EMAILJS_SERVICE_ID', 'YOUR_EMAILJS_TEMPLATE_ID', templateParams);
                     console.log('Notificación de recarga enviada');
                 } catch (error) {
                     console.error('Error al enviar notificación de recarga:', error);
@@ -1408,4 +1412,4 @@
     </script>
 </body>
 </html>
-            
+                   
