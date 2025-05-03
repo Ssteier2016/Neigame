@@ -1,29 +1,25 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const cors = require('cors'); // Agregamos el módulo cors
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: 'https://neigame.onrender.com', // Permitimos solicitudes desde el frontend en Render
+    origin: 'https://neigame.onrender.com',
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
-// Middleware para habilitar CORS en todas las rutas
 app.use(cors({
   origin: 'https://neigame.onrender.com',
   methods: ['GET', 'POST'],
   credentials: true
 }));
-
-// Servir archivos estáticos (como index.html) desde la carpeta actual
 app.use(express.static(__dirname));
 
-// Variables del juego
 let users = [];
 let pot = 0;
 let timer = null;
@@ -99,7 +95,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Usar el puerto proporcionado por Render o 3000 para desarrollo local
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
