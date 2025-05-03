@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // Definir showErrorMessage en el ámbito global
         function showErrorMessage(elementId, message) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -434,10 +433,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.')"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Inicializar EmailJS
             try {
                 if (typeof emailjs !== 'undefined') {
-                    emailjs.init("KWVSgPsdHmSAURvGd"); // Public Key
+                    emailjs.init("KWVSgPsdHmSAURvGd"); // Reemplaza con tu Public Key de EmailJS
                 } else {
                     showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
                 }
@@ -446,7 +444,6 @@
                 showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.');
             }
 
-            // Configuración inicial
             const POLICIES_VERSION = "1.0.0";
             let playerCoins = 1000;
             let hasParticipated = false;
@@ -489,7 +486,6 @@
             const settingsMetamask = document.getElementById('settings-metamask');
             const settingsSave = document.getElementById('settings-save');
             const settingsBack = document.getElementById('settings-back');
-            const settingsMessage = document.getElementById('settings-message');
             const withdrawAmount = document.getElementById('withdraw-amount');
             const withdrawCurrency = document.getElementById('withdraw-currency');
             const withdrawSubmit = document.getElementById('withdraw-submit');
@@ -510,16 +506,103 @@
             const usersList = document.getElementById('users-list');
             const chatMessage = document.getElementById('chat-message');
 
-            // Estado de autenticación
             let isLoginMode = true;
 
-            // Políticas en HTML (abreviado)
-            const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p>...</body></html>`;
-            const statsHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Estadísticas del Juego</h1><p>No hay estadísticas disponibles en modo local.</p></body></html>`;
+            // Políticas y estadísticas HTML (abreviado)
+            const policiesHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Políticas</title></head><body><h1>Políticas y Condiciones</h1><p>Última actualización: 2 de mayo de 2025</p><p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p></body></html>`;
 
             // Configuración del chat y temporizador
-            const socket = io('http://localhost:3000'); // Reemplaza con la URL de tu servidor
+            const socket = io('https://neigame.onrender.com');
             let mediaRecorder = null;
+
+            // Estadísticas
+            function saveStats(username, wonAmount, lostAmount) {
+                try {
+                    const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
+                    if (!stats[username]) {
+                        stats[username] = { wins: 0, losses: 0, totalWon: 0, totalLost: 0, lastWin: null };
+                    }
+                    if (wonAmount > 0) {
+                        stats[username].wins += 1;
+                        stats[username].totalWon += wonAmount;
+                        stats[username].lastWin = new Date().toISOString();
+                        // Guardar últimos ganadores
+                        let recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
+                        recentWinners.unshift({ username, amount: wonAmount, date: new Date().toISOString() });
+                        if (recentWinners.length > 20) recentWinners = recentWinners.slice(0, 20);
+                        localStorage.setItem('recentWinners', JSON.stringify(recentWinners));
+                    }
+                    if (lostAmount > 0) {
+                        stats[username].losses += 1;
+                        stats[username].totalLost += lostAmount;
+                    }
+                    localStorage.setItem('gameStats', JSON.stringify(stats));
+                } catch (error) {
+                    console.error('Error al guardar estadísticas:', error);
+                }
+            }
+
+            function getStatsHtml() {
+                try {
+                    const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
+                    const recentWinners = JSON.parse(localStorage.getItem('recentWinners') || '[]');
+                    const statsArray = Object.entries(stats);
+                    // Top 20 ganadores
+                    const topWinners = statsArray.sort((a, b) => b[1].totalWon - a[1].totalWon).slice(0, 20);
+                    // Top 20 perdedores
+                    const topLosers = statsArray.sort((a, b) => b[1].totalLost - a[1].totalLost).slice(0, 20);
+                    let html = `
+                        <!DOCTYPE html>
+                        <html lang="es">
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>Estadísticas</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; background: #000; color: #fff; padding: 20px; }
+                                h1, h2 { color: #ffeb3b; }
+                                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                                th, td { border: 1px solid #ffeb3b; padding: 8px; text-align: left; }
+                                th { background: #e91e63; }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>Estadísticas del Juego</h1>
+                            <h2>Top 20 Ganadores</h2>
+                            <table>
+                                <tr><th>Usuario</th><th>Total Ganado (Neig)</th><th>Victorias</th></tr>
+                    `;
+                    topWinners.forEach(([user, data]) => {
+                        html += `<tr><td>${user}</td><td>${data.totalWon}</td><td>${data.wins}</td></tr>`;
+                    });
+                    html += `
+                            </table>
+                            <h2>Top 20 Perdedores</h2>
+                            <table>
+                                <tr><th>Usuario</th><th>Total Perdido (Neig)</th><th>Derrotas</th></tr>
+                    `;
+                    topLosers.forEach(([user, data]) => {
+                        html += `<tr><td>${user}</td><td>${data.totalLost}</td><td>${data.losses}</td></tr>`;
+                    });
+                    html += `
+                            </table>
+                            <h2>Últimos 20 Ganadores</h2>
+                            <table>
+                                <tr><th>Usuario</th><th>Cantidad (Neig)</th><th>Fecha</th></tr>
+                    `;
+                    recentWinners.forEach(winner => {
+                        html += `<tr><td>${winner.username}</td><td>${winner.amount}</td><td>${new Date(winner.date).toLocaleString()}</td></tr>`;
+                    });
+                    html += `
+                            </table>
+                        </body>
+                        </html>
+                    `;
+                    return html;
+                } catch (error) {
+                    console.error('Error al generar estadísticas:', error);
+                    return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Error al cargar estadísticas</h1></body></html>';
+                }
+            }
 
             function showChatMessage(message) {
                 chatMessage.textContent = message;
@@ -581,10 +664,15 @@
                 updateTimerDisplay(seconds);
                 if (seconds <= 0 && winner) {
                     if (winner === username) {
-                        playerCoins += Math.round(pot * 0.89);
+                        const winAmount = Math.round(pot * 0.89);
+                        playerCoins += winAmount;
+                        saveStats(username, winAmount, 0);
                         updateUserCoins(username, playerCoins);
-                        showMessage(`¡Felicidades! Has ganado ${Math.round(pot * 0.89)} Neig.`);
+                        showMessage(`¡Felicidades! Has ganado ${winAmount} Neig.`);
                     } else {
+                        if (hasParticipated) {
+                            saveStats(username, 0, 100);
+                        }
                         showMessage(`El tiempo se agotó. ${winner} ganó ${Math.round(pot * 0.89)} Neig.`);
                     }
                     hasParticipated = false;
@@ -614,7 +702,6 @@
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new MediaRecorder(stream);
                         const chunks = [];
-
                         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
                         mediaRecorder.onstop = () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
@@ -631,7 +718,6 @@
                             };
                             reader.readAsDataURL(blob);
                         };
-
                         mediaRecorder.start();
                         recordButton.textContent = 'Detener Grabación';
                         recordButton.classList.add('recording');
@@ -647,13 +733,8 @@
                 }
             });
 
-            // Funciones de mensajes
             function showAuthMessage(message) {
-                if (authMessage) {
-                    authMessage.textContent = message;
-                } else {
-                    console.warn('Elemento auth-message no encontrado');
-                }
+                if (authMessage) authMessage.textContent = message;
             }
 
             function showMessage(message) {
@@ -662,36 +743,21 @@
                     while (messageBox.childNodes.length > 1) {
                         messageBox.removeChild(messageBox.lastChild);
                     }
-                } else {
-                    console.warn('Elemento message-box no encontrado');
                 }
             }
 
             function showPoliciesMessage(message) {
-                if (policiesMessage) {
-                    policiesMessage.textContent = message;
-                } else {
-                    console.warn('Elemento policies-message no encontrado');
-                }
+                if (policiesMessage) policiesMessage.textContent = message;
             }
 
             function showSettingsMessage(message) {
-                if (settingsMessage) {
-                    settingsMessage.textContent = message;
-                } else {
-                    console.warn('Elemento settings-message no encontrado');
-                }
+                if (settingsMessage) settingsMessage.textContent = message;
             }
 
             function showWithdrawMessage(message) {
-                if (withdrawMessage) {
-                    withdrawMessage.textContent = message;
-                } else {
-                    console.warn('Elemento withdraw-message no encontrado');
-                }
+                if (withdrawMessage) withdrawMessage.textContent = message;
             }
 
-            // Funciones de autenticación
             function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
                 try {
                     const users = JSON.parse(localStorage.getItem('users') || '{}');
@@ -851,7 +917,6 @@
                 authConfirmPassword.value = '';
             }
 
-            // Funciones de políticas
             function handlePoliciesAccept() {
                 updateUserPolicies(username, true, POLICIES_VERSION);
                 policiesContainer.classList.remove('active');
@@ -912,16 +977,15 @@
                 }
             }
 
-            // Funciones de estadísticas
             function showStatsWindow() {
                 try {
                     const statsWindow = window.open('', '_blank');
                     if (statsWindow) {
-                        statsWindow.document.write(statsHtml);
+                        statsWindow.document.write(getStatsHtml());
                         statsWindow.document.close();
                     } else {
                         showMessage('No se pudo abrir la ventana de estadísticas. Desactiva el bloqueador de ventanas emergentes.');
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(statsHtml);
+                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(getStatsHtml());
                         const link = document.createElement('a');
                         link.href = dataUrl;
                         link.download = 'estadisticas_juego.html';
@@ -938,7 +1002,6 @@
                 }
             }
 
-            // Funciones de configuración
             function loadUserSettings() {
                 getUser(username, user => {
                     try {
@@ -982,7 +1045,6 @@
                 showSettingsMessage('');
             }
 
-            // Funciones de retiro
             async function sendWithdrawalNotification(amount, currency, realName, displayName, cvu) {
                 try {
                     if (typeof emailjs === 'undefined') {
@@ -1054,7 +1116,6 @@
                 showWithdrawMessage('');
             }
 
-            // Funciones para actualizar la UI
             function updatePotDisplay() {
                 try {
                     if (potDisplay) {
@@ -1101,7 +1162,6 @@
                 });
             }
 
-            // Funciones del juego
             function handleCompete() {
                 getUser(username, user => {
                     try {
@@ -1192,7 +1252,6 @@
                 }
             }
 
-            // Verificar usuario logueado
             const currentUser = localStorage.getItem('currentUser');
             if (currentUser) {
                 getUser(currentUser, user => {
@@ -1218,7 +1277,6 @@
                 });
             }
 
-            // Event listeners
             authSubmit.addEventListener('click', handleAuthSubmit);
             authToggle.addEventListener('click', toggleAuthMode);
             authPassword.addEventListener('keypress', e => {
