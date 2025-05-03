@@ -110,12 +110,12 @@
             margin-top: 0.5rem;
         }
         #policies-content {
-            max-height: 250px;
+            max-height: 400px; /* Aumentado para mostrar más texto */
             overflow-y: auto;
             text-align: left;
             font-size: 0.6rem;
             margin-bottom: 0.5rem;
-            padding: 0.5rem;
+            padding: 0.75rem; /* Más padding para mejor legibilidad */
             border: 2px solid #03a9f4;
             background-color: #1a237e;
         }
@@ -305,10 +305,26 @@
         #message-form {
             width: 100%;
             display: flex;
+            flex-direction: column; /* Cambiado a columna para botones debajo */
             gap: 0.5rem;
         }
         #message-input {
-            flex-grow: 1;
+            width: 100%;
+            height: 60px; /* Aumentado para cuadro de texto más grande */
+            padding: 0.75rem;
+            margin: 0;
+            border: 2px solid #03a9f4;
+            border-radius: 4px;
+            background-color: #1a237e;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8rem; /* Ligeramente más grande */
+            resize: none; /* Evita redimensionar manualmente */
+        }
+        #message-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
         }
         @media (max-width: 640px) {
             body {
@@ -334,10 +350,12 @@
                 padding: 0.5rem;
             }
             #message-input {
-                font-size: 0.6rem;
+                height: 50px; /* Ajustado para móviles */
+                font-size: 0.7rem;
             }
-            .message {
-                font-size: 0.6rem;
+            #policies-content {
+                max-height: 300px; /* Ajustado para móviles */
+                font-size: 0.55rem;
             }
         }
     </style>
@@ -360,7 +378,19 @@
             <h2>Políticas y Condiciones</h2>
             <div id="policies-content">
                 <p><strong>Última actualización: 2 de mayo de 2025</strong></p>
-                <p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo...</p>
+                <p>Bienvenido a "La Moneda del Vecindario", una comunidad que utiliza Neighborcoin (Neig) como token para participar en nuestro juego competitivo. Al usar esta plataforma, aceptas los siguientes términos y condiciones:</p>
+                <p>1. <strong>Elegibilidad</strong>: Debes ser mayor de 18 años y residir en una jurisdicción donde el uso de Neighborcoin sea legal.</p>
+                <p>2. <strong>Uso de Neighborcoin</strong>: Neighborcoin (Neig) es un token digital utilizado exclusivamente dentro de la plataforma para participar en juegos competitivos. No tiene valor monetario fuera de la plataforma.</p>
+                <p>3. <strong>Recargas y Retiros</strong>: Los usuarios pueden recargar Neig a través de métodos aprobados. Los retiros están sujetos a verificación y pueden tardar hasta 7 días hábiles.</p>
+                <p>4. <strong>Conducta del Usuario</strong>: Está prohibido el uso de bots, trampas, o cualquier comportamiento que comprometa la integridad del juego. Nos reservamos el derecho de suspender cuentas que violen esta política.</p>
+                <p>5. <strong>Privacidad</strong>: Recopilamos datos como nombre ficticio, email, y direcciones MetaMask para procesar transacciones y mejorar la experiencia del usuario. Consulta nuestra Política de Privacidad para más detalles.</p>
+                <p>6. <strong>Limitación de Responsabilidad</strong>: La plataforma no se hace responsable por pérdidas de Neig debido a errores del usuario o fallos técnicos fuera de nuestro control.</p>
+                <p>7. <strong>Modificaciones</strong>: Nos reservamos el derecho de modificar estos términos en cualquier momento. Los usuarios serán notificados de cambios significativos.</p>
+                <p>Para cualquier consulta, contáctanos en support@neigame.com.</p>
+                <!-- Más texto para probar desplazamiento -->
+                <p>8. <strong>Propiedad Intelectual</strong>: Todo el contenido de la plataforma, incluyendo diseño, código, y gráficos, es propiedad de Neigame y está protegido por leyes de derechos de autor.</p>
+                <p>9. <strong>Terminación</strong>: Podemos terminar tu acceso a la plataforma si violas estos términos o por cualquier otra razón a nuestra discreción.</p>
+                <p>10. <strong>Ley Aplicable</strong>: Estos términos se rigen por las leyes del país donde está registrada la plataforma.</p>
             </div>
             <button id="policies-accept">Aceptar</button>
             <button id="policies-reject">Rechazar</button>
@@ -395,9 +425,11 @@
             <div id="users-list">Usuarios conectados: 0</div>
             <div id="messages"></div>
             <form id="message-form">
-                <input type="text" id="message-input" placeholder="Escribe un mensaje">
-                <button type="button" id="record-button">Grabar Audio</button>
-                <button type="submit" id="send-button">Enviar</button>
+                <textarea id="message-input" placeholder="Escribe un mensaje"></textarea>
+                <div id="message-buttons">
+                    <button type="button" id="record-button">Grabar Audio</button>
+                    <button type="submit" id="send-button">Enviar</button>
+                </div>
                 <p id="chat-message"></p>
             </form>
         </div>
