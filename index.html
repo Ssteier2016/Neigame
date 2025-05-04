@@ -581,6 +581,7 @@
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
+            const authConfirmPassword = document.getElementById('auth-confirm-password');
             const authSubmit = document.getElementById('auth-submit');
             const authToggle = document.getElementById('auth-toggle');
             const authMessage = document.getElementById('auth-message');
@@ -929,10 +930,7 @@
             socket.on('connect', () => {
                 console.log('Conectado al servidor Socket.IO');
                 if (username) {
-                    getUser(username, user => {
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        socket.emit('join', displayName);
-                    });
+                    socket.emit('join', username);
                 }
             });
 
@@ -970,29 +968,26 @@
                 e.preventDefault();
                 const message = messageInput.value.trim().toLowerCase();
                 if (message && username) {
-                    getUser(username, user => {
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        if (message === 'descargar' || message === 'cerrar') {
-                            if (deferredPrompt) {
-                                deferredPrompt.prompt();
-                                deferredPrompt.userChoice.then(choiceResult => {
-                                    if (choiceResult.outcome === 'accepted') {
-                                        showErrorMessage('message-box', 'Instalando La Moneda del Vecindario...');
-                                    } else {
-                                        showErrorMessage('message-box', 'Instalación cancelada.');
-                                    }
-                                    deferredPrompt = null;
-                                });
-                            } else {
-                                showErrorMessage('message-box', 'La instalación no está disponible en este navegador.');
-                            }
-                            messageInput.value = '';
+                    if (message === 'descargar' || message === 'cerrar') {
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            deferredPrompt.userChoice.then(choiceResult => {
+                                if (choiceResult.outcome === 'accepted') {
+                                    showErrorMessage('message-box', 'Instalando La Moneda del Vecindario...');
+                                } else {
+                                    showErrorMessage('message-box', 'Instalación cancelada.');
+                                }
+                                deferredPrompt = null;
+                            });
                         } else {
-                            console.log(`Enviando mensaje de texto: ${message}`);
-                            socket.emit('chat message', { user: displayName, message, type: 'text' });
-                            messageInput.value = '';
+                            showErrorMessage('message-box', 'La instalación no está disponible en este navegador.');
                         }
-                    });
+                        messageInput.value = '';
+                    } else {
+                        console.log(`Enviando mensaje de texto: ${message}`);
+                        socket.emit('chat message', { user: username, message, type: 'text' });
+                        messageInput.value = '';
+                    }
                 } else {
                     showChatMessage('Inicia sesión para enviar mensajes.');
                 }
@@ -1013,14 +1008,11 @@
                             const blob = new Blob(chunks, { type: 'audio/webm' });
                             const reader = new FileReader();
                             reader.onload = () => {
-                                getUser(username, user => {
-                                    const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                                    console.log('Enviando mensaje de audio');
-                                    socket.emit('chat message', {
-                                        user: displayName,
-                                        message: reader.result,
-                                        type: 'audio'
-                                    });
+                                console.log('Enviando mensaje de audio');
+                                socket.emit('chat message', {
+                                    user: username,
+                                    message: reader.result,
+                                    type: 'audio'
                                 });
                             };
                             reader.readAsDataURL(blob);
@@ -1069,201 +1061,140 @@
             }
 
             // Funciones de autenticación
-            function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    users[username] = { password, coins, settings, policiesAccepted, policiesVersion };
-                    localStorage.setItem('users', JSON.stringify(users));
-                } catch (error) {
-                    console.error('Error al guardar usuario:', error);
-                    showAuthMessage('Error al guardar datos del usuario.');
-                }
-            }
-
-            function getUser(username, callback) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    callback(users[username] || {});
-                } catch (error) {
-                    console.error('Error en getUser:', error);
-                    callback({});
-                }
-            }
-
-            function loginUser(username, password, callback) {
-                getUser(username, user => {
-                    try {
-                        if (user && user.password === password) {
-                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                            localStorage.setItem('session_' + username, sessionId);
-                            localStorage.setItem('currentUser', username);
-                            callback({ success: true, sessionId, policiesAccepted: user.policiesAccepted, policiesVersion: user.policiesVersion });
-                        } else {
-                            callback({ success: false });
-                        }
-                    } catch (error) {
-                        console.error('Error en loginUser:', error);
-                        callback({ success: false });
-                    }
-                });
-            }
-
-            function registerUser(username, password, callback) {
-                getUser(username, user => {
-                    try {
-                        if (user && user.password) {
-                            callback(false);
-                        } else {
-                            saveUser(username, password);
-                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
-                            localStorage.setItem('session_' + username, sessionId);
-                            localStorage.setItem('currentUser', username);
-                            callback(true);
-                        }
-                    } catch (error) {
-                        console.error('Error en registerUser:', error);
-                        callback(false);
-                    }
-                });
-            }
-
-            function checkSession(username) {
-                return localStorage.getItem('session_' + username);
-            }
-
-            function updateUserCoins(username, coins) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].coins = coins;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar monedas:', error);
-                    showMessage('Error al actualizar saldo.');
-                }
-            }
-
-            function updateUserSettings(username, settings) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].settings = settings;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar configuración:', error);
-                    showSettingsMessage('Error al guardar configuración.');
-                }
-            }
-
-            function updateUserPolicies(username, accepted, version) {
-                try {
-                    const users = JSON.parse(localStorage.getItem('users') || '{}');
-                    if (users[username]) {
-                        users[username].policiesAccepted = accepted;
-                        users[username].policiesVersion = version;
-                        localStorage.setItem('users', JSON.stringify(users));
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar políticas:', error);
-                    showPoliciesMessage('Error al actualizar políticas.');
-                }
-            }
-
             function handleAuthSubmit() {
-    const usernameInput = authUsername.value.trim();
-    const passwordInput = authPassword.value.trim();
-    const confirmPasswordInput = authConfirmPassword.value.trim();
+                const usernameInput = authUsername.value.trim();
+                const passwordInput = authPassword.value.trim();
+                const confirmPasswordInput = authConfirmPassword.value.trim();
 
-    if (!usernameInput || !passwordInput) {
-        showAuthMessage('Por favor, completa todos los campos.');
-        return;
-    }
-
-    if (!isLoginMode && passwordInput !== confirmPasswordInput) {
-        showAuthMessage('Las contraseñas no coinciden.');
-        return;
-    }
-
-    if (isLoginMode) {
-        loginUser(usernameInput, passwordInput, result => {
-            if (result.success) {
-                username = usernameInput;
-                sessionId = result.sessionId;
-                authContainer.classList.remove('active');
-                if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
-                    gameContainer.classList.add('active');
-                    initializeGame();
-                } else if (!result.telegramVerified) {
-                    showAuthMessage('Debes verificar tu cuenta con el bot de Telegram.');
-                } else {
-                    policiesContainer.classList.add('active');
+                if (!usernameInput || !passwordInput) {
+                    showAuthMessage('Por favor, completa todos los campos.');
+                    return;
                 }
-            } else {
-                showAuthMessage('Usuario o contraseña incorrectos.');
+
+                if (!isLoginMode && passwordInput !== confirmPasswordInput) {
+                    showAuthMessage('Las contraseñas no coinciden.');
+                    return;
+                }
+
+                const endpoint = isLoginMode ? '/login' : '/register';
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success || result.message) {
+                        username = usernameInput;
+                        if (isLoginMode) {
+                            sessionId = result.sessionId;
+                            authContainer.classList.remove('active');
+                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                                gameContainer.classList.add('active');
+                                initializeGame();
+                            } else if (!result.telegramVerified) {
+                                showAuthMessage('Debes verificar tu cuenta con el bot de Telegram.');
+                                setTimeout(() => {
+                                    authContainer.classList.add('active');
+                                }, 3000);
+                            } else {
+                                policiesContainer.classList.add('active');
+                            }
+                        } else {
+                            authContainer.classList.remove('active');
+                            showAuthMessage(result.message);
+                            setTimeout(() => {
+                                toggleAuthMode();
+                                authContainer.classList.add('active');
+                            }, 3000);
+                        }
+                    } else {
+                        showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAuthMessage('Error al conectar con el servidor.');
+                });
             }
-        });
-    } else {
-        registerUser(usernameInput, passwordInput, success => {
-            if (success) {
-                username = usernameInput;
-                authContainer.classList.remove('active');
-                showAuthMessage(`Registro exitoso. Verifica tu cuenta con @MiVerificadorBot usando el código recibido.`);
-                // El código de verificación se muestra en el backend (server.js)
-            } else {
-                showAuthMessage('El usuario ya existe.');
-            }
-        });
-    }
-}
 
             function toggleAuthMode() {
-    isLoginMode = !isLoginMode;
-    authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
-    authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
-    authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
-    authConfirmPassword.style.display = isLoginMode ? 'none' : 'block'; // Mostrar/ocultar confirmar contraseña
-    showAuthMessage('');
-    authUsername.value = '';
-    authPassword.value = '';
-    authConfirmPassword.value = '';
+                isLoginMode = !isLoginMode;
+                authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
+                authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
+                authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
+                authConfirmPassword.style.display = isLoginMode ? 'none' : 'block';
+                showAuthMessage('');
+                authUsername.value = '';
+                authPassword.value = '';
+                authConfirmPassword.value = '';
             }
 
             // Funciones de políticas
             function handlePoliciesAccept() {
-                updateUserPolicies(username, true, POLICIES_VERSION);
-                policiesContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                initializeGame();
-                showMessage('Has aceptado las Políticas y Condiciones. ¡Bienvenido al juego!');
+                fetch('/accept-policies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, policiesVersion: POLICIES_VERSION })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        policiesContainer.classList.remove('active');
+                        gameContainer.classList.add('active');
+                        initializeGame();
+                        showMessage('Has aceptado las Políticas y Condiciones. ¡Bienvenido al juego!');
+                    } else {
+                        showPoliciesMessage('Error al aceptar las políticas.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al aceptar políticas:', error);
+                    showPoliciesMessage('Error al conectar con el servidor.');
+                });
             }
 
             function handlePoliciesReject() {
-                updateUserPolicies(username, false, POLICIES_VERSION);
-                policiesContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                initializeGame();
-                showMessage('Has rechazado las Políticas y Condiciones. Solo puedes usar el chat y observar el juego.');
+                fetch('/reject-policies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, policiesVersion: POLICIES_VERSION })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        policiesContainer.classList.remove('active');
+                        gameContainer.classList.add('active');
+                        initializeGame();
+                        showMessage('Has rechazado las Políticas y Condiciones. Solo puedes usar el chat y observar el juego.');
+                    } else {
+                        showPoliciesMessage('Error al rechazar las políticas.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al rechazar políticas:', error);
+                    showPoliciesMessage('Error al conectar con el servidor.');
+                });
             }
 
             function updatePoliciesStatus() {
-                getUser(username, user => {
-                    try {
-                        if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                            policiesStatus.classList.remove('rejected');
-                            policiesStatus.classList.add('accepted');
-                            policiesCheckbox.checked = true;
-                            policiesText.textContent = 'Ud. aceptó las ';
-                        } else {
-                            policiesStatus.classList.remove('accepted');
-                            policiesStatus.classList.add('rejected');
-                            policiesCheckbox.checked = false;
-                            policiesText.textContent = 'Ud. no aceptó las ';
-                        }
-                    } catch (error) {
-                        console.error('Error al actualizar estado de políticas:', error);
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                        policiesStatus.classList.remove('rejected');
+                        policiesStatus.classList.add('accepted');
+                        policiesCheckbox.checked = true;
+                        policiesText.textContent = 'Ud. aceptó las ';
+                    } else {
+                        policiesStatus.classList.remove('accepted');
+                        policiesStatus.classList.add('rejected');
+                        policiesCheckbox.checked = false;
+                        policiesText.textContent = 'Ud. no aceptó las ';
                     }
+                })
+                .catch(error => {
+                    console.error('Error al actualizar estado de políticas:', error);
                 });
             }
 
@@ -1320,40 +1251,51 @@
 
             // Funciones de configuración
             function loadUserSettings() {
-                getUser(username, user => {
-                    try {
-                        if (user && user.settings) {
-                            settingsDisplayName.value = user.settings.displayName || '';
-                            settingsEmail.value = user.settings.email || '';
-                            settingsCvu.value = user.settings.cvu || '';
-                            settingsMetamask.value = user.settings.metamask || '';
-                        }
-                    } catch (error) {
-                        console.error('Error al cargar configuración:', error);
-                        showSettingsMessage('Error al cargar configuración.');
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    if (user && user.settings) {
+                        settingsDisplayName.value = user.settings.displayName || '';
+                        settingsEmail.value = user.settings.email || '';
+                        settingsCvu.value = user.settings.cvu || '';
+                        settingsMetamask.value = user.settings.metamask || '';
                     }
+                })
+                .catch(error => {
+                    console.error('Error al cargar configuración:', error);
+                    showSettingsMessage('Error al cargar configuración.');
                 });
             }
 
             function handleSettingsSave() {
-                try {
-                    const settings = {
-                        displayName: settingsDisplayName.value.trim(),
-                        email: settingsEmail.value.trim(),
-                        cvu: settingsCvu.value.trim(),
-                        metamask: settingsMetamask.value.trim()
-                    };
-                    updateUserSettings(username, settings);
-                    showSettingsMessage('Configuración guardada exitosamente.');
-                    setTimeout(() => {
-                        settingsContainer.classList.remove('active');
-                        gameContainer.classList.add('active');
-                        showSettingsMessage('');
-                    }, 1000);
-                } catch (error) {
+                const settings = {
+                    displayName: settingsDisplayName.value.trim(),
+                    email: settingsEmail.value.trim(),
+                    cvu: settingsCvu.value.trim(),
+                    metamask: settingsMetamask.value.trim()
+                };
+                fetch('/update-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, settings })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        showSettingsMessage('Configuración guardada exitosamente.');
+                        setTimeout(() => {
+                            settingsContainer.classList.remove('active');
+                            gameContainer.classList.add('active');
+                            showSettingsMessage('');
+                        }, 1000);
+                    } else {
+                        showSettingsMessage('Error al guardar configuración.');
+                    }
+                })
+                .catch(error => {
                     console.error('Error al guardar configuración:', error);
                     showSettingsMessage('Error al guardar configuración.');
-                }
+                });
             }
 
             function handleSettingsBack() {
@@ -1385,7 +1327,9 @@
             }
 
             function handleWithdraw() {
-                getUser(username, user => {
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
                     if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
                         showMessage('Debes aceptar las Políticas y Condiciones para retirar Neig.');
                         return;
@@ -1395,43 +1339,64 @@
                     withdrawAmount.value = '';
                     withdrawCurrency.value = 'Neig';
                     showWithdrawMessage('');
+                })
+                .catch(error => {
+                    console.error('Error al verificar usuario:', error);
+                    showMessage('Error al conectar con el servidor.');
                 });
             }
 
             function handleWithdrawSubmit() {
-                try {
-                    const amount = parseInt(withdrawAmount.value);
-                    const currency = withdrawCurrency.value;
-                    getUser(username, user => {
-                        const settings = user.settings || {};
-                        if (!amount || amount <= 0) {
-                            showWithdrawMessage('Por favor, ingresa una cantidad válida.');
-                            return;
+                const amount = parseInt(withdrawAmount.value);
+                const currency = withdrawCurrency.value;
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    const settings = user.settings || {};
+                    if (!amount || amount <= 0) {
+                        showWithdrawMessage('Por favor, ingresa una cantidad válida.');
+                        return;
+                    }
+                    if (amount > playerCoins) {
+                        showWithdrawMessage('No tienes suficientes Neig para retirar.');
+                        return;
+                    }
+                    if (!settings.cvu && currency === 'Pesos') {
+                        showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
+                        return;
+                    }
+                    if (!settings.metamask && currency === 'Neig') {
+                        showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
+                        return;
+                    }
+                    fetch('/withdraw', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, amount, currency })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            playerCoins -= amount;
+                            updateUserCoins(username, playerCoins);
+                            updatePlayerInfo();
+                            sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
+                            withdrawForm.classList.remove('active');
+                            gameContainer.classList.add('active');
+                            showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
+                        } else {
+                            showWithdrawMessage(result.detail || 'Error al procesar retiro.');
                         }
-                        if (amount > playerCoins) {
-                            showWithdrawMessage('No tienes suficientes Neig para retirar.');
-                            return;
-                        }
-                        if (!settings.cvu && currency === 'Pesos') {
-                            showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
-                            return;
-                        }
-                        if (!settings.metamask && currency === 'Neig') {
-                            showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
-                            return;
-                        }
-                        playerCoins -= amount;
-                        updateUserCoins(username, playerCoins);
-                        updatePlayerInfo();
-                        sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
-                        withdrawForm.classList.remove('active');
-                        gameContainer.classList.add('active');
-                        showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
+                    })
+                    .catch(error => {
+                        console.error('Error al procesar retiro:', error);
+                        showWithdrawMessage('Error al conectar con el servidor.');
                     });
-                } catch (error) {
-                    console.error('Error al procesar retiro:', error);
-                    showWithdrawMessage('Error al procesar retiro.');
-                }
+                })
+                .catch(error => {
+                    console.error('Error al verificar usuario:', error);
+                    showWithdrawMessage('Error al conectar con el servidor.');
+                });
             }
 
             function handleWithdrawCancel() {
@@ -1442,7 +1407,9 @@
 
             // Funciones de recarga
             function handleReload() {
-                getUser(username, user => {
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
                     if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
                         showMessage('Debes aceptar las Políticas y Condiciones para recargar Neig.');
                         return;
@@ -1451,26 +1418,41 @@
                     gameContainer.classList.remove('active');
                     reloadAmount.value = '';
                     showReloadMessage('');
+                })
+                .catch(error => {
+                    console.error('Error al verificar usuario:', error);
+                    showMessage('Error al conectar con el servidor.');
                 });
             }
 
             function handleReloadSubmit() {
-                try {
-                    const amount = parseInt(reloadAmount.value);
-                    if (!amount || amount <= 0) {
-                        showReloadMessage('Por favor, ingresa una cantidad válida.');
-                        return;
-                    }
-                    playerCoins += amount;
-                    updateUserCoins(username, playerCoins);
-                    updatePlayerInfo();
-                    reloadForm.classList.remove('active');
-                    gameContainer.classList.add('active');
-                    showMessage(`Se han recargado ${amount} Neig.`);
-                } catch (error) {
-                    console.error('Error al recargar:', error);
-                    showReloadMessage('Error al recargar Neig.');
+                const amount = parseInt(reloadAmount.value);
+                if (!amount || amount <= 0) {
+                    showReloadMessage('Por favor, ingresa una cantidad válida.');
+                    return;
                 }
+                fetch('/reload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, amount })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        playerCoins += amount;
+                        updateUserCoins(username, playerCoins);
+                        updatePlayerInfo();
+                        reloadForm.classList.remove('active');
+                        gameContainer.classList.add('active');
+                        showMessage(`Se han recargado ${amount} Neig.`);
+                    } else {
+                        showReloadMessage(result.detail || 'Error al recargar Neig.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al recargar:', error);
+                    showReloadMessage('Error al conectar con el servidor.');
+                });
             }
 
             function handleReloadCancel() {
@@ -1481,128 +1463,97 @@
 
             // Funciones para actualizar la UI
             function updatePlayerInfo() {
-                getUser(username, user => {
-                    try {
-                        const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        usernameDisplay.textContent = `Usuario: ${displayName}`;
-                        coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
-                        competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
-                        reloadButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
-                        withdrawButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
-                        updatePoliciesStatus();
-                    } catch (error) {
-                        console.error('Error al actualizar info del jugador:', error);
-                    }
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
+                    playerCoins = user.coins || 1000;
+                    usernameDisplay.textContent = `Usuario: ${displayName}`;
+                    coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+                    competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
+                    reloadButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
+                    withdrawButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
+                    updatePoliciesStatus();
+                })
+                .catch(error => {
+                    console.error('Error al actualizar info del jugador:', error);
+                });
+            }
+
+            function updateUserCoins(username, coins) {
+                fetch('/update-coins', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, coins })
+                })
+                .catch(error => {
+                    console.error('Error al actualizar monedas:', error);
+                    showMessage('Error al actualizar saldo.');
                 });
             }
 
             function handleCompete() {
-                getUser(username, user => {
-                    try {
-                        if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                            showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
-                            return;
-                        }
-                        if (playerCoins >= 100) {
-                            if (!hasParticipated) {
-                                playerCoins -= 100;
-                                updateUserCoins(username, playerCoins);
-                                const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                                lastPlayers.unshift({
-                                    username: displayName,
-                                    timestamp: new Date().toLocaleTimeString('es-ES', { hour12: false })
-                                });
-                                if (lastPlayers.length > 5) {
-                                    lastPlayers.pop();
-                                }
-                                updateLastPlayers();
-                                updatePlayerInfo();
-                                socket.emit('compete', { username: displayName });
-                                hasParticipated = true;
-                                competeButton.disabled = true;
-                                competeButton.textContent = 'Esperando...';
-                                showMessage('Has apostado 100 Neig.');
-                            } else {
-                                showMessage('Ya has participado en esta ronda.');
-                            }
-                        } else {
-                            showMessage('No tienes suficientes Neig para participar.');
-                        }
-                    } catch (error) {
-                        console.error('Error al competir:', error);
-                        showMessage('Error al procesar apuesta.');
+                fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                        showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
+                        return;
                     }
+                    if (playerCoins >= 100) {
+                        if (!hasParticipated) {
+                            playerCoins -= 100;
+                            updateUserCoins(username, playerCoins);
+                            const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                            lastPlayers.unshift({
+                                username: displayName,
+                                timestamp: new Date().toLocaleTimeString('es-ES', { hour12: false })
+                            });
+                            if (lastPlayers.length > 5) {
+                                lastPlayers.pop();
+                            }
+                            updateLastPlayers();
+                            updatePlayerInfo();
+                            socket.emit('compete', { username: displayName });
+                            hasParticipated = true;
+                            competeButton.disabled = true;
+                            competeButton.textContent = 'Esperando...';
+                            showMessage('Has apostado 100 Neig.');
+                        } else {
+                            showMessage('Ya has participado en esta ronda.');
+                        }
+                    } else {
+                        showMessage('No tienes suficientes Neig para participar.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al competir:', error);
+                    showMessage('Error al procesar apuesta.');
                 });
             }
 
             function handleLogout() {
-                try {
-                    socket.emit('leave', username);
-                    localStorage.removeItem('currentUser');
-                    localStorage.removeItem('session_' + username);
-                    authContainer.classList.add('active');
-                    gameContainer.classList.remove('active');
-                    showAuthMessage('Sesión cerrada.');
-                    username = null;
-                    playerCoins = 1000;
-                    isLoginMode = true;
-                    authTitle.textContent = 'Iniciar Sesión';
-                    authSubmit.textContent = 'Iniciar Sesión';
-                    authToggle.textContent = '¿No tienes cuenta? Regístrate';
-                    authUsername.value = '';
-                    authPassword.value = '';
-                } catch (error) {
-                    console.error('Error al cerrar sesión:', error);
-                    showAuthMessage('Error al cerrar sesión.');
-                }
+                socket.emit('leave', username);
+                authContainer.classList.add('active');
+                gameContainer.classList.remove('active');
+                showAuthMessage('Sesión cerrada.');
+                username = null;
+                playerCoins = 1000;
+                isLoginMode = true;
+                authTitle.textContent = 'Iniciar Sesión';
+                authSubmit.textContent = 'Iniciar Sesión';
+                authToggle.textContent = '¿No tienes cuenta? Regístrate';
+                authUsername.value = '';
+                authPassword.value = '';
+                authConfirmPassword.value = '';
             }
 
             function initializeGame() {
-                try {
-                    if (!checkSession(username)) {
-                        handleLogout();
-                        showAuthMessage('Sesión iniciada en otro dispositivo.');
-                        return;
-                    }
-                    getUser(username, user => {
-                        playerCoins = user.coins || 1000;
-                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        socket.emit('join', displayName);
-                        updatePlayerInfo();
-                        showMessage(user.policiesAccepted ? `¡Bienvenido, ${username}!` : `¡Bienvenido, ${username}! Solo puedes chatear y observar hasta aceptar las Políticas.`);
-                        initializeChat();
-                        updateLastPlayers();
-                    });
-                } catch (error) {
-                    console.error('Error al inicializar juego:', error);
-                    showMessage('Error al inicializar el juego.');
-                }
-            }
-
-            // Verificar usuario logueado
-            const currentUser = localStorage.getItem('currentUser');
-            if (currentUser) {
-                getUser(currentUser, user => {
-                    try {
-                        if (user && checkSession(currentUser)) {
-                            username = currentUser;
-                            playerCoins = user.coins || 1000;
-                            authContainer.classList.remove('active');
-                            if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
-                                gameContainer.classList.add('active');
-                                initializeGame();
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
-                        } else {
-                            localStorage.removeItem('currentUser');
-                            showAuthMessage('Inicia sesión nuevamente.');
-                        }
-                    } catch (error) {
-                        console.error('Error al verificar usuario logueado:', error);
-                        showAuthMessage('Error al verificar sesión.');
-                    }
-                });
+                socket.emit('join', username);
+                updatePlayerInfo();
+                showMessage(`¡Bienvenido, ${username}!`);
+                initializeChat();
+                updateLastPlayers();
             }
 
             // Listeners
