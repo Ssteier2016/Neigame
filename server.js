@@ -80,7 +80,7 @@ app.post('/register', async (req, res) => {
 
     res.json({
         success: true,
-        message: `Usuario registrado. Envía este código a @Neigbot con /verify ${verificationCode}`
+        message: `Código de verificación: ${verificationCode}`
     });
 });
 
