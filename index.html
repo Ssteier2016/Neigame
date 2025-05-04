@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Competencia por Neig con Chat</title>
+    <title>La Moneda del Vecindario</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="/output.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <!-- PWA Support -->
     <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="/icon-192x192.png">
+    <link rel="icon" href="/favicon.ico">
     <script>
         // Definir showErrorMessage en el ámbito global
         function showErrorMessage(elementId, message) {
@@ -31,7 +32,7 @@
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background: url('https://images.unsplash.com/photo-1611345613376-12b6f4a7e6cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background: url('/images/background.jpg') no-repeat center center fixed;
             background-size: cover;
             background-color: #000;
             color: #fff;
@@ -466,13 +467,13 @@
         <div id="pot-display">Pozo: 0 Neig</div>
         <div id="last-players">Últimos Jugadores: Ninguno</div>
         <div id="timer-display">
-            <p>Tiempo Restante: 240 segundos</p>
+            <p>Tiempo Restante: 4:00</p>
             <div id="progress-bar">
                 <div id="progress-bar-fill"></div>
             </div>
             <p id="timer-percentage">100%</p>
         </div>
-        <button id="compete-button">Jugar</button>
+        <button id="compete-button">Jugar (100 Neig)</button>
         <div id="message-box">Bienvenido al juego. ¡Presiona el botón para competir!</div>
         <div class="flex flex-wrap justify-center gap-2">
             <button id="reload-button" class="button">Recargar Neig</button>
@@ -548,7 +549,7 @@
                 deferredPrompt = e;
             });
             window.addEventListener('appinstalled', () => {
-                showMessage('¡La Moneda del Vecindario ha sido instalada!');
+                showErrorMessage('message-box', '¡La Moneda del Vecindario ha sido instalada!');
                 deferredPrompt = null;
             });
 
@@ -567,9 +568,7 @@
             let sessionId = null;
             const developerPercentage = 0.05;
             const potPercentage = 0.06;
-            let pot = 0;
-            let timerInterval = null;
-            const lastPlayers = []; // Array para últimos jugadores
+            const lastPlayers = [];
 
             // Elementos del DOM
             const authContainer = document.getElementById('auth-container');
@@ -604,7 +603,6 @@
             const settingsMetamask = document.getElementById('settings-metamask');
             const settingsSave = document.getElementById('settings-save');
             const settingsBack = document.getElementById('settings-back');
-            const settingsMessage = document.getElementById('settings-message');
             const withdrawAmount = document.getElementById('withdraw-amount');
             const withdrawCurrency = document.getElementById('withdraw-currency');
             const withdrawSubmit = document.getElementById('withdraw-submit');
@@ -633,7 +631,7 @@
             // Estado de autenticación
             let isLoginMode = true;
 
-            // Políticas en HTML (completo para ventana emergente)
+            // Políticas en HTML
             const policiesHtml = `
                 <!DOCTYPE html>
                 <html lang="es">
@@ -645,7 +643,7 @@
                     <style>
                         body {
                             font-family: 'Press Start 2P', cursive;
-                            background: url('https://images.unsplash.com/photo-1611345613376-12b6f4a7e6cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+                            background: url('/images/background.jpg') no-repeat center center fixed;
                             background-size: cover;
                             background-color: #000;
                             color: #fff;
@@ -803,7 +801,11 @@
             const statsHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Estadísticas del Juego</h1><p>No hay estadísticas disponibles en modo local.</p></body></html>`;
 
             // Configuración del chat
-            const socket = io('http://localhost:3000', { transports: ['websocket'] });
+            const socket = io('https://neigame.onrender.com', {
+                transports: ['websocket', 'polling'],
+                reconnectionAttempts: 5,
+                path: '/socket.io'
+            });
             let mediaRecorder = null;
 
             // Habilitar botón Aceptar al llegar al final de políticas
@@ -842,7 +844,7 @@
             function updateUsersList(users) {
                 try {
                     console.log('Actualizando lista de usuarios:', users);
-                    usersList.innerHTML = '<strong>Usuarios conectados:</strong>';
+                    usersList.innerHTML = `<strong>Usuarios conectados: ${users.length}</strong>`;
                     if (users.length === 0) {
                         const p = document.createElement('p');
                         p.textContent = 'No hay usuarios conectados';
@@ -881,7 +883,40 @@
                     }
                 } catch (error) {
                     console.error('Error al actualizar últimos jugadores:', error);
-                    showMessage('Error al actualizar últimos jugadores.');
+                    showErrorMessage('message-box', 'Error al actualizar últimos jugadores.');
+                }
+            }
+
+            function updateTimerDisplay(seconds, pot, winner) {
+                try {
+                    potDisplay.textContent = `Pozo: ${pot} Neig`;
+                    const minutes = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    const percentage = Math.max(0, (seconds / 240) * 100);
+                    timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+                    progressBarFill.style.width = `${percentage}%`;
+                    timerPercentageDisplay.textContent = `${Math.round(percentage)}%`;
+                    if (seconds <= 0 && winner) {
+                        const playerWinAmount = Math.round(pot * 0.89);
+                        addMessage({
+                            user: 'Sistema',
+                            content: `¡${winner} ganó ${playerWinAmount} Neig!`,
+                            type: 'text'
+                        });
+                        if (winner === username) {
+                            playerCoins += playerWinAmount;
+                            updateUserCoins(username, playerCoins);
+                            updatePlayerInfo();
+                        }
+                        lastPlayers.length = 0;
+                        updateLastPlayers();
+                        hasParticipated = false;
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar (100 Neig)';
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar temporizador:', error);
+                    showErrorMessage('message-box', 'Error al actualizar temporizador.');
                 }
             }
 
@@ -925,10 +960,15 @@
                 addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
             });
 
+            socket.on('timer update', ({ seconds, pot, winner }) => {
+                console.log(`Actualización del temporizador: ${seconds}, Pozo: ${pot}, Ganador: ${winner}`);
+                updateTimerDisplay(seconds, pot, winner);
+            });
+
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const message = messageInput.value.trim().toLowerCase();
-                if (message) {
+                if (message && username) {
                     getUser(username, user => {
                         const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
                         if (message === 'descargar' || message === 'cerrar') {
@@ -936,14 +976,14 @@
                                 deferredPrompt.prompt();
                                 deferredPrompt.userChoice.then(choiceResult => {
                                     if (choiceResult.outcome === 'accepted') {
-                                        showMessage('Instalando La Moneda del Vecindario...');
+                                        showErrorMessage('message-box', 'Instalando La Moneda del Vecindario...');
                                     } else {
-                                        showMessage('Instalación cancelada.');
+                                        showErrorMessage('message-box', 'Instalación cancelada.');
                                     }
                                     deferredPrompt = null;
                                 });
                             } else {
-                                showMessage('La instalación no está disponible en este navegador.');
+                                showErrorMessage('message-box', 'La instalación no está disponible en este navegador.');
                             }
                             messageInput.value = '';
                         } else {
@@ -952,16 +992,21 @@
                             messageInput.value = '';
                         }
                     });
+                } else {
+                    showChatMessage('Inicia sesión para enviar mensajes.');
                 }
             });
 
             recordButton.addEventListener('click', async () => {
+                if (!username) {
+                    showChatMessage('Inicia sesión para grabar audio.');
+                    return;
+                }
                 if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new MediaRecorder(stream);
                         const chunks = [];
-
                         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
                         mediaRecorder.onstop = () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
@@ -979,7 +1024,6 @@
                             };
                             reader.readAsDataURL(blob);
                         };
-
                         mediaRecorder.start();
                         recordButton.textContent = 'Detener Grabación';
                         recordButton.classList.add('recording');
@@ -997,54 +1041,30 @@
 
             // Funciones de mensajes
             function showAuthMessage(message) {
-                if (authMessage) {
-                    authMessage.textContent = message;
-                } else {
-                    console.warn('Elemento auth-message no encontrado');
-                }
+                authMessage.textContent = message;
             }
 
             function showMessage(message) {
-                if (messageBox) {
-                    messageBox.textContent = message;
-                    while (messageBox.childNodes.length > 1) {
-                        messageBox.removeChild(messageBox.lastChild);
-                    }
-                } else {
-                    console.warn('Elemento message-box no encontrado');
+                messageBox.textContent = message;
+                while (messageBox.childNodes.length > 1) {
+                    messageBox.removeChild(messageBox.lastChild);
                 }
             }
 
             function showPoliciesMessage(message) {
-                if (policiesMessage) {
-                    policiesMessage.textContent = message;
-                } else {
-                    console.warn('Elemento policies-message no encontrado');
-                }
+                policiesMessage.textContent = message;
             }
 
             function showSettingsMessage(message) {
-                if (settingsMessage) {
-                    settingsMessage.textContent = message;
-                } else {
-                    console.warn('Elemento settings-message no encontrado');
-                }
+                settingsMessage.textContent = message;
             }
 
             function showWithdrawMessage(message) {
-                if (withdrawMessage) {
-                    withdrawMessage.textContent = message;
-                } else {
-                    console.warn('Elemento withdraw-message no encontrado');
-                }
+                withdrawMessage.textContent = message;
             }
 
             function showReloadMessage(message) {
-                if (reloadMessage) {
-                    reloadMessage.textContent = message;
-                } else {
-                    console.warn('Elemento reload-message no encontrado');
-                }
+                reloadMessage.textContent = message;
             }
 
             // Funciones de autenticación
@@ -1153,12 +1173,10 @@
             function handleAuthSubmit() {
                 const usernameInput = authUsername.value.trim();
                 const passwordInput = authPassword.value.trim();
-
                 if (!usernameInput || !passwordInput) {
                     showAuthMessage('Por favor, completa todos los campos.');
                     return;
                 }
-
                 if (isLoginMode) {
                     loginUser(usernameInput, passwordInput, result => {
                         if (result.success) {
@@ -1448,104 +1466,20 @@
             }
 
             // Funciones para actualizar la UI
-            function updatePotDisplay() {
-                try {
-                    if (potDisplay) {
-                        potDisplay.textContent = `Pozo: ${pot} Neig`;
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar pozo:', error);
-                }
-            }
-
-            function updateTimerDisplay(seconds) {
-                try {
-                    if (timerDisplay) {
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = Math.floor(seconds % 60);
-                        const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 100);
-                        timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
-                        const percentage = Math.max(0, (seconds / 240) * 100);
-                        progressBarFill.style.width = `${percentage}%`;
-                        timerPercentageDisplay.textContent = `${Math.round(percentage)}%`;
-                    }
-                } catch (error) {
-                    console.error('Error al actualizar temporizador:', error);
-                }
-            }
-
             function updatePlayerInfo() {
                 getUser(username, user => {
                     try {
                         const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
-                        if (usernameDisplay) {
-                            usernameDisplay.textContent = `Usuario: ${displayName}`;
-                        }
-                        if (coinsDisplay) {
-                            coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
-                        }
-                        if (competeButton) {
-                            competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
-                        }
-                        if (reloadButton) {
-                            reloadButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
-                        }
-                        if (withdrawButton) {
-                            withdrawButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
-                        }
+                        usernameDisplay.textContent = `Usuario: ${displayName}`;
+                        coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+                        competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
+                        reloadButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
+                        withdrawButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
                         updatePoliciesStatus();
                     } catch (error) {
                         console.error('Error al actualizar info del jugador:', error);
                     }
                 });
-            }
-
-            // Funciones del juego
-            function startTimer() {
-                let seconds = 240;
-                updateTimerDisplay(seconds);
-                timerInterval = setInterval(() => {
-                    seconds -= 0.1;
-                    if (seconds <= 0) {
-                        endTimer();
-                    }
-                    updateTimerDisplay(seconds);
-                }, 100);
-            }
-
-            function endTimer() {
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                }
-                try {
-                    if (hasParticipated) {
-                        const playerWinAmount = Math.round(pot * 0.89);
-                        const developerWinAmount = Math.round(pot * developerPercentage);
-                        const potLeftover = Math.round(pot * potPercentage);
-                        playerCoins += playerWinAmount;
-                        updateUserCoins(username, playerCoins);
-                        showMessage(`¡Felicidades! Has ganado ${playerWinAmount} Neig.`);
-                        pot = potLeftover;
-                        hasParticipated = false;
-                        lastPlayers.length = 0; // Limpiar lista de jugadores
-                        updateLastPlayers();
-                    } else {
-                        showMessage('El tiempo se agotó y nadie participó.');
-                        pot = 0;
-                        lastPlayers.length = 0; // Limpiar lista de jugadores
-                        updateLastPlayers();
-                    }
-                    updatePotDisplay();
-                    updatePlayerInfo();
-                    if (competeButton) {
-                        competeButton.disabled = false;
-                        competeButton.textContent = 'Jugar';
-                    }
-                } catch (error) {
-                    console.error('Error al finalizar temporizador:', error);
-                    showMessage('Error al finalizar ronda.');
-                }
             }
 
             function handleCompete() {
@@ -1558,9 +1492,7 @@
                         if (playerCoins >= 100) {
                             if (!hasParticipated) {
                                 playerCoins -= 100;
-                                pot += 100;
                                 updateUserCoins(username, playerCoins);
-                                // Añadir jugador a la lista
                                 const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
                                 lastPlayers.unshift({
                                     username: displayName,
@@ -1571,15 +1503,10 @@
                                 }
                                 updateLastPlayers();
                                 updatePlayerInfo();
-                                updatePotDisplay();
+                                socket.emit('compete', { username: displayName });
                                 hasParticipated = true;
-                                if (competeButton) {
-                                    competeButton.disabled = true;
-                                    competeButton.textContent = 'Esperando...';
-                                }
-                                if (!timerInterval) {
-                                    startTimer();
-                                }
+                                competeButton.disabled = true;
+                                competeButton.textContent = 'Esperando...';
                                 showMessage('Has apostado 100 Neig.');
                             } else {
                                 showMessage('Ya has participado en esta ronda.');
@@ -1610,10 +1537,6 @@
                     authToggle.textContent = '¿No tienes cuenta? Regístrate';
                     authUsername.value = '';
                     authPassword.value = '';
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                    }
                 } catch (error) {
                     console.error('Error al cerrar sesión:', error);
                     showAuthMessage('Error al cerrar sesión.');
