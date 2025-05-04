@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,36 +15,46 @@ const io = socketIo(server, {
     path: '/socket.io'
 });
 
-// Configuración del bot de Telegram
-const TELEGRAM_BOT_TOKEN = '7860281561:AAHKvL7YS14JMb7TdGERGCkiY-dAz_BjKKo'; // Reemplaza con el token de @BotFather
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
-
-// Almacenamiento en memoria (reemplaza con base de datos si es necesario)
-const users = {};
-const verificationCodes = {};
-
-// Middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Servir index.html
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TELEGRAM_BOT_TOKEN) {
+    console.error('Error: TELEGRAM_BOT_TOKEN no está definido');
+    process.exit(1);
+}
+
+const WEBHOOK_URL = 'https://neigame.onrender.com/telegram-webhook';
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
+
+// Configurar webhook
+bot.setWebHook(`${WEBHOOK_URL}/${TELEGRAM_BOT_TOKEN}`).then(() => {
+    console.log('Webhook configurado exitosamente');
+}).catch(err => {
+    console.error('Error al configurar webhook:', err);
+});
+
+// Endpoint para recibir actualizaciones de Telegram
+app.post(`/telegram-webhook/${TELEGRAM_BOT_TOKEN}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+});
+
+const users = {};
+const verificationCodes = {};
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Registro de usuario
 app.post('/register', (req, res) => {
     const { username, password } = req.body;
-
     if (users[username]) {
         return res.status(400).json({ detail: 'El usuario ya existe' });
     }
-
-    // Generar código de verificación
     const verificationCode = Math.random().toString(36).substr(2, 8).toUpperCase();
     verificationCodes[username] = verificationCode;
-
-    // Guardar usuario (sin verificar)
     users[username] = {
         password,
         coins: 1000,
@@ -52,24 +63,18 @@ app.post('/register', (req, res) => {
         telegramVerified: false,
         telegramChatId: null
     };
-
-    // Enviar mensaje al usuario (puedes usar Telegram aquí si ya tienes chatId, o mostrar en UI)
     res.json({ message: `Usuario registrado. Envía este código a @MiVerificadorBot: ${verificationCode}` });
 });
 
-// Login de usuario
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
-
     const user = users[username];
     if (!user || user.password !== password) {
         return res.status(400).json({ detail: 'Credenciales incorrectas' });
     }
-
     if (!user.telegramVerified) {
         return res.status(400).json({ detail: 'Debes verificar tu cuenta con el bot de Telegram' });
     }
-
     const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
     res.json({
         success: true,
@@ -80,7 +85,6 @@ app.post('/login', (req, res) => {
     });
 });
 
-// Bot de Telegram
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, '¡Hola! Registra tu cuenta en la aplicación y envíame el código de verificación.');
@@ -89,11 +93,7 @@ bot.onText(/\/start/, (msg) => {
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
     const code = msg.text.trim().toUpperCase();
-
-    // Ignorar comandos como /start
     if (code.startsWith('/')) return;
-
-    // Buscar usuario con el código
     let verifiedUsername = null;
     for (const [username, storedCode] of Object.entries(verificationCodes)) {
         if (storedCode === code) {
@@ -101,7 +101,6 @@ bot.on('message', (msg) => {
             break;
         }
     }
-
     if (verifiedUsername && users[verifiedUsername]) {
         users[verifiedUsername].telegramVerified = true;
         users[verifiedUsername].telegramChatId = chatId;
@@ -112,7 +111,6 @@ bot.on('message', (msg) => {
     }
 });
 
-// Lógica del juego (mantenida de tu server.js original)
 const gameState = {
     pot: 0,
     seconds: 240,
@@ -142,13 +140,11 @@ setInterval(() => {
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
-
     socket.on('join', (username) => {
         socket.username = username;
         io.emit('user joined', { user: username });
         io.emit('users update', Object.keys(users).filter(u => users[u].telegramVerified));
     });
-
     socket.on('compete', ({ username }) => {
         if (users[username] && users[username].telegramVerified && !gameState.players.includes(username)) {
             if (users[username].coins >= 100) {
@@ -159,16 +155,13 @@ io.on('connection', (socket) => {
             }
         }
     });
-
     socket.on('chat message', ({ user, message, type }) => {
         io.emit('chat message', { user, message, type });
     });
-
     socket.on('leave', (username) => {
         io.emit('user left', { user: username });
         io.emit('users update', Object.keys(users).filter(u => users[u].telegramVerified));
     });
-
     socket.on('disconnect', () => {
         if (socket.username) {
             io.emit('user left', { user: socket.username });
