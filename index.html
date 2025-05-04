@@ -1172,49 +1172,62 @@
             }
 
             function handleAuthSubmit() {
-                const usernameInput = authUsername.value.trim();
-                const passwordInput = authPassword.value.trim();
-                if (!usernameInput || !passwordInput) {
-                    showAuthMessage('Por favor, completa todos los campos.');
-                    return;
-                }
-                if (isLoginMode) {
-                    loginUser(usernameInput, passwordInput, result => {
-                        if (result.success) {
-                            username = usernameInput;
-                            sessionId = result.sessionId;
-                            authContainer.classList.remove('active');
-                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
-                                gameContainer.classList.add('active');
-                                initializeGame();
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
-                        } else {
-                            showAuthMessage('Usuario o contraseña incorrectos.');
-                        }
-                    });
+    const usernameInput = authUsername.value.trim();
+    const passwordInput = authPassword.value.trim();
+    const confirmPasswordInput = authConfirmPassword.value.trim();
+
+    if (!usernameInput || !passwordInput) {
+        showAuthMessage('Por favor, completa todos los campos.');
+        return;
+    }
+
+    if (!isLoginMode && passwordInput !== confirmPasswordInput) {
+        showAuthMessage('Las contraseñas no coinciden.');
+        return;
+    }
+
+    if (isLoginMode) {
+        loginUser(usernameInput, passwordInput, result => {
+            if (result.success) {
+                username = usernameInput;
+                sessionId = result.sessionId;
+                authContainer.classList.remove('active');
+                if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                    gameContainer.classList.add('active');
+                    initializeGame();
+                } else if (!result.telegramVerified) {
+                    showAuthMessage('Debes verificar tu cuenta con el bot de Telegram.');
                 } else {
-                    registerUser(usernameInput, passwordInput, success => {
-                        if (success) {
-                            username = usernameInput;
-                            authContainer.classList.remove('active');
-                            policiesContainer.classList.add('active');
-                        } else {
-                            showAuthMessage('El usuario ya existe.');
-                        }
-                    });
+                    policiesContainer.classList.add('active');
                 }
+            } else {
+                showAuthMessage('Usuario o contraseña incorrectos.');
             }
+        });
+    } else {
+        registerUser(usernameInput, passwordInput, success => {
+            if (success) {
+                username = usernameInput;
+                authContainer.classList.remove('active');
+                showAuthMessage(`Registro exitoso. Verifica tu cuenta con @MiVerificadorBot usando el código recibido.`);
+                // El código de verificación se muestra en el backend (server.js)
+            } else {
+                showAuthMessage('El usuario ya existe.');
+            }
+        });
+    }
+}
 
             function toggleAuthMode() {
-                isLoginMode = !isLoginMode;
-                authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
-                authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
-                authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
-                showAuthMessage('');
-                authUsername.value = '';
-                authPassword.value = '';
+    isLoginMode = !isLoginMode;
+    authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
+    authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
+    authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
+    authConfirmPassword.style.display = isLoginMode ? 'none' : 'block'; // Mostrar/ocultar confirmar contraseña
+    showAuthMessage('');
+    authUsername.value = '';
+    authPassword.value = '';
+    authConfirmPassword.value = '';
             }
 
             // Funciones de políticas
