@@ -63,7 +63,7 @@ app.post('/register', (req, res) => {
         telegramVerified: false,
         telegramChatId: null
     };
-    res.json({ message: `Usuario registrado. Envía este código a @MiVerificadorBot: ${verificationCode}` });
+    res.json({ message: `Usuario registrado. Envía este código a @Neigbot: ${verificationCode}` });
 });
 
 app.post('/login', (req, res) => {
