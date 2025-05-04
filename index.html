@@ -439,7 +439,7 @@
                 <p>Neig es una moneda virtual solo para la plataforma. Retiros (MetaMask o CVU/CBU) pueden tardar 7 días, pero requieren aceptar estos términos.</p>
                 <p><strong>7. Conducta</strong></p>
                 <p>Prohibido usar bots, trampas, o actividades fraudulentas. Podemos suspender cuentas sin reembolsos.</p>
-                <p><strong>8. Priv掖</p>
+                <p><strong>8. Privacidad</strong></p>
                 <p>Recopilamos datos (usuario, email, MetaMask) para retiros y mejoras. No compartimos sin tu consentimiento.</p>
                 <p><strong>9. Limitación de Responsabilidad</strong></p>
                 <p>La plataforma es "tal cual". No nos responsabilizamos por pérdidas, errores técnicos, o interrupciones.</p>
@@ -1662,3 +1662,35 @@
                             showAuthMessage('Inicia sesión nuevamente.');
                         }
                     } catch (error) {
+                        console.error('Error al verificar usuario logueado:', error);
+                        showAuthMessage('Error al verificar sesión.');
+                    }
+                });
+            }
+
+            // Listeners
+            authSubmit.addEventListener('click', handleAuthSubmit);
+            authToggle.addEventListener('click', toggleAuthMode);
+            policiesAccept.addEventListener('click', handlePoliciesAccept);
+            policiesReject.addEventListener('click', handlePoliciesReject);
+            statsButton.addEventListener('click', showStatsWindow);
+            competeButton.addEventListener('click', handleCompete);
+            reloadButton.addEventListener('click', handleReload);
+            withdrawButton.addEventListener('click', handleWithdraw);
+            settingsButton.addEventListener('click', () => {
+                settingsContainer.classList.add('active');
+                gameContainer.classList.remove('active');
+                loadUserSettings();
+            });
+            logoutButton.addEventListener('click', handleLogout);
+            settingsSave.addEventListener('click', handleSettingsSave);
+            settingsBack.addEventListener('click', handleSettingsBack);
+            withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
+            withdrawCancel.addEventListener('click', handleWithdrawCancel);
+            reloadSubmit.addEventListener('click', handleReloadSubmit);
+            reloadCancel.addEventListener('click', handleReloadCancel);
+            policiesLink.addEventListener('click', showPoliciesWindow);
+        });
+    </script>
+</body>
+</html>
