@@ -113,6 +113,23 @@
             font-size: 0.7rem;
             margin-top: 0.5rem;
         }
+        #verification-instructions {
+            background: rgba(3, 169, 244, 0.2);
+            padding: 0.5rem;
+            border: 2px solid #03a9f4;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            font-size: 0.7rem;
+            color: #ffeb3b;
+            display: none;
+        }
+        #verification-instructions.active {
+            display: block;
+        }
+        #verification-instructions a {
+            color: #03a9f4;
+            text-decoration: underline;
+        }
         #policies-content {
             max-height: 250px;
             overflow-y: auto;
@@ -406,6 +423,9 @@
             #users-list, #last-players {
                 font-size: 0.7rem;
             }
+            #verification-instructions {
+                font-size: 0.6rem;
+            }
         }
     </style>
 </head>
@@ -419,6 +439,12 @@
             <button id="auth-submit">Iniciar Sesión</button>
             <p id="auth-toggle">¿No tienes cuenta? Regístrate</p>
             <p id="auth-message"></p>
+            <div id="verification-instructions">
+                <p>¡Envía este código a <a href="https://t.me/Neigbot" target="_blank">@Neigbot</a> en Telegram!</p>
+                <p>Código: <strong id="verification-code"></strong></p>
+                <p>Escribe: <code id="verification-command"></code></p>
+                <p><a id="verification-link" href="#" target="_blank">Haz clic aquí para enviar el código automáticamente</a></p>
+            </div>
         </div>
     </div>
     <div id="policies-container">
@@ -585,6 +611,10 @@
             const authSubmit = document.getElementById('auth-submit');
             const authToggle = document.getElementById('auth-toggle');
             const authMessage = document.getElementById('auth-message');
+            const verificationInstructions = document.getElementById('verification-instructions');
+            const verificationCode = document.getElementById('verification-code');
+            const verificationCommand = document.getElementById('verification-command');
+            const verificationLink = document.getElementById('verification-link');
             const statsButton = document.getElementById('stats-button');
             const potDisplay = document.getElementById('pot-display');
             const lastPlayersDisplay = document.getElementById('last-players');
@@ -816,6 +846,20 @@
                 policiesAccept.disabled = !isAtBottom;
             });
 
+            // Mostrar instrucciones de verificación
+            function showVerificationInstructions(code) {
+                verificationCode.textContent = code;
+                verificationCommand.textContent = `/verify ${code}`;
+                verificationLink.href = `https://t.me/Neigbot?text=/verify%20${code}`;
+                verificationInstructions.classList.add('active');
+                setTimeout(() => {
+                    verificationInstructions.classList.remove('active');
+                    verificationCode.textContent = '';
+                    verificationCommand.textContent = '';
+                    verificationLink.href = '#';
+                }, 15000);
+            }
+
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
@@ -1033,8 +1077,10 @@
             });
 
             // Funciones de mensajes
-            function showAuthMessage(message) {
+            function showAuthMessage(message, isSuccess = false) {
                 authMessage.textContent = message;
+                authMessage.style.color = isSuccess ? '#4caf50' : '#ffeb3b';
+                setTimeout(() => authMessage.textContent = '', 10000);
             }
 
             function showMessage(message) {
@@ -1101,12 +1147,13 @@
                                 policiesContainer.classList.add('active');
                             }
                         } else {
-                            authContainer.classList.remove('active');
-                            showAuthMessage(result.message);
+                            const code = result.message.split(': ')[1];
+                            showAuthMessage('Registro exitoso. Verifica tu cuenta en Telegram.', true);
+                            showVerificationInstructions(code);
                             setTimeout(() => {
                                 toggleAuthMode();
                                 authContainer.classList.add('active');
-                            }, 3000);
+                            }, 15000);
                         }
                     } else {
                         showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
@@ -1128,6 +1175,7 @@
                 authUsername.value = '';
                 authPassword.value = '';
                 authConfirmPassword.value = '';
+                verificationInstructions.classList.remove('active');
             }
 
             // Funciones de políticas
