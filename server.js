@@ -1,99 +1,76 @@
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const TelegramBot = require('node-telegram-bot-api');
-const path = require('path');
-const cors = require('cors');
 const bcrypt = require('bcrypt');
+const TelegramBot = require('node-telegram-bot-api');
+const { v4: uuidv4 } = require('uuid');
+const socketIo = require('socket.io');
+const http = require('http');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
+    path: '/socket.io',
     cors: {
         origin: '*',
         methods: ['GET', 'POST']
-    },
-    path: '/socket.io'
+    }
 });
 
-app.use(cors());
+const port = process.env.PORT || 3000;
+const botToken = 'YOUR_TELEGRAM_BOT_TOKEN'; // Reemplaza con tu token
+const bot = new TelegramBot(botToken, { polling: true });
+
+// Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
-if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_ADMIN_CHAT_ID) {
-    console.error('Error: TELEGRAM_BOT_TOKEN o TELEGRAM_ADMIN_CHAT_ID no están definidos');
-    process.exit(1);
-}
-
-const WEBHOOK_URL = 'https://neigame.onrender.com/telegram-webhook';
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
-
-// Configurar webhook
-bot.setWebHook(WEBHOOK_URL).then(() => {
-    console.log('Webhook configurado exitosamente');
-}).catch(err => {
-    console.error('Error al configurar webhook:', err);
-});
-
-// Endpoint para recibir actualizaciones de Telegram
-app.post('/telegram-webhook', (req, res) => {
-    bot.processUpdate(req.body);
-    res.sendStatus(200);
-});
-
+// Base de datos en memoria
 const users = {};
 const verificationCodes = {};
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+// Rutas
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
-        return res.status(400).json({ detail: 'Nombre de usuario y contraseña son requeridos' });
+        return res.status(400).json({ success: false, detail: 'Usuario y contraseña son requeridos' });
     }
     if (users[username]) {
-        return res.status(400).json({ detail: 'El usuario ya existe' });
+        return res.status(400).json({ success: false, detail: 'El usuario ya existe' });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationCode = Math.random().toString(36).substr(2, 8).toUpperCase();
-    verificationCodes[username] = verificationCode;
-    users[username] = {
-        password: hashedPassword,
-        coins: 1000,
-        policiesAccepted: false,
-        policiesVersion: '',
-        telegramVerified: false,
-        telegramChatId: null
-    };
-
-    // Enviar código de verificación al administrador
-    bot.sendMessage(
-        TELEGRAM_ADMIN_CHAT_ID,
-        `Nuevo registro: ${username}. Código de verificación: ${verificationCode}`
-    ).catch(err => {
-        console.error('Error al enviar mensaje de Telegram:', err);
-    });
-
-    res.json({
-        success: true,
-        message: `Código de verificación: ${verificationCode}`
-    });
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const verificationCode = uuidv4().slice(0, 8);
+        users[username] = {
+            password: hashedPassword,
+            coins: 1000,
+            telegramVerified: false,
+            verificationCode,
+            policiesAccepted: false,
+            policiesVersion: null,
+            settings: {}
+        };
+        verificationCodes[verificationCode] = username;
+        res.json({ success: true, message: `Código de verificación: ${verificationCode}` });
+    } catch (error) {
+        console.error('Error al registrar:', error);
+        res.status(500).json({ success: false, detail: 'Error interno del servidor' });
+    }
 });
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users[username];
     if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(400).json({ detail: 'Credenciales incorrectas' });
+        return res.status(401).json({ success: false, detail: 'Usuario o contraseña incorrectos' });
     }
     if (!user.telegramVerified) {
-        return res.status(400).json({ detail: 'Debes verificar tu cuenta con el bot de Telegram' });
+        return res.status(403).json({
+            success: false,
+            detail: 'Debes verificar tu cuenta con el bot de Telegram',
+            telegramVerified: false
+        });
     }
-    const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
+    const sessionId = uuidv4();
     res.json({
         success: true,
         sessionId,
@@ -104,136 +81,163 @@ app.post('/login', async (req, res) => {
 });
 
 app.get('/user/:username', (req, res) => {
-    const { username } = req.params;
-    const user = users[username];
+    const user = users[req.params.username];
     if (!user) {
-        return res.status(404).json({ detail: 'Usuario no encontrado' });
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
     }
     res.json({
-        username,
+        success: true,
         coins: user.coins,
         policiesAccepted: user.policiesAccepted,
         policiesVersion: user.policiesVersion,
+        settings: user.settings,
         telegramVerified: user.telegramVerified
     });
 });
 
-app.post('/update-policies', (req, res) => {
-    const { username, policiesAccepted, policiesVersion } = req.body;
-    const user = users[username];
-    if (!user) {
-        return res.status(404).json({ detail: 'Usuario no encontrado' });
-    }
-    user.policiesAccepted = policiesAccepted;
-    user.policiesVersion = policiesVersion;
-    res.json({ success: true });
-});
-
 app.post('/update-coins', (req, res) => {
     const { username, coins } = req.body;
-    const user = users[username];
-    if (!user) {
-        return res.status(404).json({ detail: 'Usuario no encontrado' });
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
     }
-    user.coins = coins;
+    users[username].coins = coins;
     res.json({ success: true });
 });
 
-bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, '¡Hola! Registra tu cuenta en la aplicación y envíame el código de verificación con /verify <código>.');
+app.post('/accept-policies', (req, res) => {
+    const { username, policiesVersion } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    users[username].policiesAccepted = true;
+    users[username].policiesVersion = policiesVersion;
+    res.json({ success: true });
 });
 
+app.post('/reject-policies', (req, res) => {
+    const { username, policiesVersion } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    users[username].policiesAccepted = false;
+    users[username].policiesVersion = policiesVersion;
+    res.json({ success: true });
+});
+
+app.post('/update-settings', (req, res) => {
+    const { username, settings } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    users[username].settings = settings;
+    res.json({ success: true });
+});
+
+app.post('/withdraw', (req, res) => {
+    const { username, amount, currency } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    if (amount > users[username].coins) {
+        return res.status(400).json({ success: false, detail: 'Saldo insuficiente' });
+    }
+    users[username].coins -= amount;
+    res.json({ success: true });
+});
+
+app.post('/reload', (req, res) => {
+    const { username, amount } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    if (amount <= 0) {
+        return res.status(400).json({ success: false, detail: 'Cantidad inválida' });
+    }
+    users[username].coins += amount;
+    res.json({ success: true });
+});
+
+// Telegram Bot
 bot.onText(/\/verify (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const code = match[1].trim().toUpperCase();
-    let verifiedUsername = null;
-    for (const [username, storedCode] of Object.entries(verificationCodes)) {
-        if (storedCode === code) {
-            verifiedUsername = username;
-            break;
-        }
+    const code = match[1];
+    const username = verificationCodes[code];
+    if (!username) {
+        bot.sendMessage(chatId, 'Código de verificación inválido.');
+        return;
     }
-    if (verifiedUsername && users[verifiedUsername]) {
-        users[verifiedUsername].telegramVerified = true;
-        users[verifiedUsername].telegramChatId = chatId;
-        delete verificationCodes[verifiedUsername];
-        bot.sendMessage(chatId, '¡Cuenta verificada exitosamente! Ahora puedes iniciar sesión.');
-    } else {
-        bot.sendMessage(chatId, 'Código incorrecto. Por favor, verifica e intenta de nuevo.');
-    }
+    users[username].telegramVerified = true;
+    delete verificationCodes[code];
+    bot.sendMessage(chatId, `¡Cuenta verificada para ${username}! Ahora puedes iniciar sesión.`);
 });
 
-const gameState = {
-    pot: 0,
-    seconds: 240,
-    lastWinner: null,
-    players: []
-};
-
-setInterval(() => {
-    if (gameState.seconds > 0) {
-        gameState.seconds -= 1;
-        io.emit('timer update', { seconds: gameState.seconds, pot: gameState.pot, winner: null });
-    } else {
-        if (gameState.players.length > 0) {
-            const winnerIndex = Math.floor(Math.random() * gameState.players.length);
-            const winner = gameState.players[winnerIndex];
-            const playerWinAmount = Math.round(gameState.pot * 0.89);
-            users[winner].coins += playerWinAmount;
-            gameState.lastWinner = winner;
-            gameState.pot = Math.round(gameState.pot * 0.06);
-            io.emit('timer update', { seconds: 0, pot: gameState.pot, winner });
-            io.emit('chat message', {
-                user: 'Sistema',
-                message: `¡${winner} ganó ${playerWinAmount} Neig!`,
-                type: 'text'
-            });
-        }
-        gameState.seconds = 240;
-        gameState.players = [];
-        io.emit('timer update', { seconds: gameState.seconds, pot: gameState.pot, winner: null });
-    }
-}, 1000);
+// Socket.IO
+const connectedUsers = new Set();
+const players = [];
+let pot = 0;
+let timer = 240;
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
+
     socket.on('join', (username) => {
+        connectedUsers.add(username);
         socket.username = username;
+        io.emit('users update', Array.from(connectedUsers));
         io.emit('user joined', { user: username });
-        io.emit('users update', Object.keys(users).filter(u => users[u].telegramVerified));
     });
+
     socket.on('compete', ({ username }) => {
-        if (users[username] && users[username].telegramVerified && !gameState.players.includes(username)) {
-            if (users[username].coins >= 100) {
-                users[username].coins -= 100;
-                gameState.pot += 100;
-                gameState.players.push(username);
-                io.emit('timer update', { seconds: gameState.seconds, pot: gameState.pot, winner: null });
-                io.emit('chat message', {
-                    user: 'Sistema',
-                    message: `${username} ha apostado 100 Neig.`,
-                    type: 'text'
-                });
-            }
+        if (!players.includes(username)) {
+            players.push(username);
+            pot += 100;
+            io.emit('timer update', { seconds: timer, pot, winner: null });
         }
     });
+
     socket.on('chat message', ({ user, message, type }) => {
         io.emit('chat message', { user, message, type });
     });
+
     socket.on('leave', (username) => {
+        connectedUsers.delete(username);
+        io.emit('users update', Array.from(connectedUsers));
         io.emit('user left', { user: username });
-        io.emit('users update', Object.keys(users).filter(u => users[u].telegramVerified));
     });
+
     socket.on('disconnect', () => {
         if (socket.username) {
+            connectedUsers.delete(socket.username);
+            io.emit('users update', Array.from(connectedUsers));
             io.emit('user left', { user: socket.username });
-            io.emit('users update', Object.keys(users).filter(u => users[u].telegramVerified));
         }
+        console.log('Usuario desconectado:', socket.id);
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
+// Temporizador
+setInterval(() => {
+    if (timer > 0) {
+        timer--;
+        io.emit('timer update', { seconds: timer, pot, winner: null });
+    } else {
+        let winner = null;
+        if (players.length > 0) {
+            winner = players[Math.floor(Math.random() * players.length)];
+        }
+        io.emit('timer update', { seconds: 0, pot, winner });
+        pot = Math.round(pot * 0.06);
+        players.length = 0;
+        timer = 240;
+    }
+}, 1000);
+
+// Iniciar servidor
+server.listen(port, () => {
+    console.log(`Servidor corriendo en el puerto ${port}`);
+});
+
+// Manejo de rutas no encontradas
+app.use((req, res) => {
+    res.status(404).json({ success: false, detail: 'Ruta no encontrada' });
 });
