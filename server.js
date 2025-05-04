@@ -15,7 +15,7 @@ const io = socketIo(server, {
 });
 
 // Configuración del bot de Telegram
-const TELEGRAM_BOT_TOKEN = 'TU_TOKEN_AQUÍ'; // Reemplaza con el token de @BotFather
+const TELEGRAM_BOT_TOKEN = '7860281561:AAHKvL7YS14JMb7TdGERGCkiY-dAz_BjKKo'; // Reemplaza con el token de @BotFather
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // Almacenamiento en memoria (reemplaza con base de datos si es necesario)
