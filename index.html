@@ -3,15 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neigame - Competencia Neighborcoin</title>
+    <title>Juego de Competencia por Neig con Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link href="/output.css" rel="stylesheet">
-    <link rel="icon" href="/favicon.ico">
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- PWA Support -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="/icon-192x192.png">
+    <script>
+        // Definir showErrorMessage en el ámbito global
+        function showErrorMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+            } else {
+                console.warn(`Elemento con ID ${elementId} no encontrado: ${message}`);
+                const fallbackElement = document.getElementById('message-box');
+                if (fallbackElement) {
+                    fallbackElement.textContent = message;
+                }
+            }
+        }
+    </script>
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background: url('/images/background.jpg') no-repeat center center fixed;
+            background: url('https://images.unsplash.com/photo-1611345613376-12b6f4a7e6cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
             background-size: cover;
             background-color: #000;
             color: #fff;
@@ -25,7 +45,7 @@
             box-sizing: border-box;
             image-rendering: pixelated;
         }
-        #auth-container, #game-container, #chat-container {
+        #game-container, #auth-container, #settings-container, #policies-container, #chat-container {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -33,10 +53,10 @@
             width: 100%;
             max-width: 500px;
         }
-        #auth-container.active, #game-container.active {
+        #auth-container.active, #game-container.active, #settings-container.active, #policies-container.active {
             display: flex;
         }
-        #auth-form, #chat-container {
+        #auth-form, #settings-form, #policies-form, #withdraw-form, #reload-form, #chat-container {
             background-color: rgba(0, 0, 0, 0.9);
             padding: 1rem;
             border: 4px solid #ffeb3b;
@@ -46,7 +66,7 @@
             max-width: 400px;
             text-align: center;
         }
-        #auth-form input, #message-input {
+        #auth-form input, #settings-form input, #withdraw-form input, #withdraw-form select, #reload-form input, #message-input {
             width: 100%;
             padding: 0.5rem;
             margin: 0.5rem 0;
@@ -57,7 +77,7 @@
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7rem;
         }
-        #auth-form button, #compete-button, #send-button, #record-button, #logout-button {
+        #auth-form button, #settings-form button, #policies-form button, #withdraw-form button, #reload-form button, #stats-button, #record-button, #send-button {
             padding: 0.5rem 1rem;
             margin: 0.5rem;
             font-size: 0.8rem;
@@ -69,8 +89,13 @@
             transition: background-color 0.3s ease;
             font-family: 'Press Start 2P', cursive;
         }
-        #auth-form button:hover, #compete-button:hover, #send-button:hover, #record-button:hover, #logout-button:hover {
+        #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #reload-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover {
             background-color: #c2185b;
+        }
+        #policies-accept:disabled {
+            background-color: #616161;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
         #record-button.recording {
             background-color: #4caf50;
@@ -82,51 +107,218 @@
             text-decoration: underline;
             font-size: 0.7rem;
         }
-        #auth-message, #chat-message, #message-box {
+        #auth-message, #settings-message, #policies-message, #withdraw-message, #reload-message, #chat-message {
             color: #ffeb3b;
             font-size: 0.7rem;
             margin-top: 0.5rem;
         }
-        #user-info, #pot-display, #timer-display {
+        #policies-content {
+            max-height: 250px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border: 2px solid #03a9f4;
+            background-color: #1a237e;
+        }
+        #user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             width: 100%;
             margin-bottom: 0.5rem;
             background: rgba(0, 0, 0, 0.7);
             padding: 0.5rem;
             border: 2px solid #ffeb3b;
             border-radius: 4px;
-            text-align: center;
         }
-        #user-info p, #pot-display, #timer-display p {
+        #user-info p {
             font-size: 0.7rem;
             color: #ffeb3b;
             text-shadow: 0 0 5px #e91e63;
-            margin: 0;
         }
         #pot-display {
             font-size: 1.2rem;
+            color: #ffeb3b;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
             border: 4px solid #03a9f4;
+            border-radius: 8px;
             width: 150px;
             height: 150px;
             display: flex;
             align-items: center;
             justify-content: center;
+            text-align: center;
             text-shadow: 0 0 8px #e91e63;
             box-shadow: 0 0 10px #03a9f4;
         }
+        #last-players {
+            display: block;
+            width: 100%;
+            min-height: 50px;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 4px solid #4caf50;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.7rem;
+            color: #ffeb3b;
+            text-shadow: 0 0 5px #4caf50;
+        }
+        #last-players ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #last-players li {
+            margin: 0.3rem 0;
+        }
         #timer-display {
+            font-size: 0.8rem;
+            color: #4caf50;
+            margin-bottom: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.5rem;
             border: 2px solid #4caf50;
+            border-radius: 4px;
+        }
+        #timer-display p {
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 5px #4caf50;
+        }
+        #progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #1a237e;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        #progress-bar-fill {
+            height: 100%;
+            background-color: #4caf50;
+            border-radius: 5px;
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+        #timer-percentage {
+            margin-top: 0.5rem;
+            text-shadow: 0 0 5px #4caf50;
+        }
+        #compete-button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            background-color: #e91e63;
+            color: #fff;
+            border: 2px solid #ffeb3b;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            margin-bottom: 0.5rem;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #compete-button:hover {
+            background-color: #c2185b;
         }
         #compete-button:disabled {
             background-color: #616161;
             cursor: not-allowed;
             opacity: 0.6;
+            box-shadow: none;
+        }
+        #message-box {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ffeb3b;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 2px solid #03a9f4;
+            border-radius: 4px;
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            font-size: 0.7rem;
+            text-shadow: 0 0 5px #03a9f4;
+        }
+        .button {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            background-color: #03a9f4;
+            color: #fff;
+            border: 2px solid #ffeb3b;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            margin: 0.25rem;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .button:hover {
+            background-color: #0288d1;
+        }
+        .button:disabled {
+            background-color: #616161;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+        }
+        #withdraw-form, #reload-form {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none;
+        }
+        #withdraw-form.active, #reload-form.active {
+            display: block;
+        }
+        #policies-status {
+            display: flex;
+            align-items: center;
+            font-size: 0.7rem;
+            margin-top: 0.5rem;
+        }
+        #policies-status input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+        #policies-status a {
+            color: #03a9f4;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.6rem;
+        }
+        #policies-status.accepted {
+            color: #4caf50;
+        }
+        #policies-status.rejected {
+            color: #e91e63;
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            margin-top: 1rem;
         }
         #messages {
+            display: block;
             width: 100%;
-            max-height: 200px;
+            min-height: 100px;
+            max-height: 300px;
             overflow-y: auto;
-            background-color: rgba(0, 0, 0, 0.9);
-            border: 4px solid #ffeb3b;
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 4px solid #4caf50;
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
@@ -136,6 +328,7 @@
             font-size: 0.7rem;
             color: #ffeb3b;
             text-shadow: 0 0 5px #e91e63;
+            word-wrap: break-word;
         }
         .message.audio {
             display: flex;
@@ -143,108 +336,292 @@
             gap: 0.5rem;
         }
         #users-list {
+            display: block;
             width: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
+            min-height: 50px;
+            background-color: rgba(0, 0, 0, 0.95);
             border: 4px solid #03a9f4;
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
-            font-size: 0.7rem;
-            color: #4caf50;
-            text-shadow: 0 0 5px #4caf50;
+            font-size: 0.8rem;
+            color: #ffeb3b;
+            text-shadow: 0 0 5px #03a9f4;
         }
         #users-list ul {
             list-style: none;
-            padding: 0.5rem 0;
+            padding: 0;
+            margin: 0;
         }
         #users-list li {
-            color: #ffeb3b;
-            margin: 0.2rem 0;
+            margin: 0.3rem 0;
         }
         #message-form {
             width: 100%;
             display: flex;
-            flex-direction: column;
             gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         #message-input {
-            height: 60px;
-            resize: none;
-        }
-        #message-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
+            flex: 1;
+            min-width: 150px;
         }
         @media (max-width: 640px) {
-            body { padding: 5px; }
-            #auth-container, #game-container, #chat-container { max-width: 90%; }
-            #auth-form, #chat-container { padding: 0.5rem; }
-            #pot-display { width: 120px; height: 120px; font-size: 1rem; }
-            .button, #compete-button, #send-button, #record-button { padding: 0.5rem; font-size: 0.7rem; }
-            #messages, #users-list { padding: 0.5rem; }
-            #message-input { height: 50px; font-size: 0.7rem; }
+            body {
+                padding: 5px;
+            }
+            #game-container, #auth-container, #settings-container, #policies-container, #chat-container {
+                margin-top: 0.5rem;
+                max-width: 90%;
+            }
+            #auth-form, #settings-form, #policies-form, #withdraw-form, #reload-form, #chat-container {
+                padding: 0.5rem;
+            }
+            #pot-display {
+                width: 120px;
+                height: 120px;
+                font-size: 1rem;
+            }
+            .button, #compete-button, #stats-button, #record-button, #send-button {
+                padding: 0.5rem;
+                font-size: 0.7rem;
+            }
+            #messages, #users-list, #last-players {
+                padding: 0.5rem;
+            }
+            #message-input {
+                font-size: 0.6rem;
+            }
+            .message {
+                font-size: 0.6rem;
+            }
+            #policies-content {
+                font-size: 0.4rem;
+            }
+            #policies-status a {
+                font-size: 0.5rem;
+            }
+            #users-list, #last-players {
+                font-size: 0.7rem;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Autenticación -->
     <div id="auth-container" class="active">
         <div id="auth-form">
             <h2 id="auth-title">Iniciar Sesión</h2>
             <input type="text" id="auth-username" placeholder="Usuario" required>
             <input type="password" id="auth-password" placeholder="Contraseña" required>
-            <input type="password" id="auth-confirm-password" placeholder="Confirmar Contraseña" style="display: none;" required>
             <button id="auth-submit">Iniciar Sesión</button>
             <p id="auth-toggle">¿No tienes cuenta? Regístrate</p>
             <p id="auth-message"></p>
         </div>
     </div>
-
-    <!-- Juego -->
+    <div id="policies-container">
+        <div id="policies-form">
+            <h2>Políticas y Condiciones</h2>
+            <div id="policies-content">
+                <p><strong>Última actualización: 4 de mayo de 2025</strong></p>
+                <p>Bienvenido a <strong>La Moneda del Vecindario</strong>, una plataforma de juego competitivo que utiliza Neighborcoin (Neig). Al participar, aceptas estos términos:</p>
+                <p><strong>1. Aceptación de los Términos</strong></p>
+                <p>Al hacer clic en "Aceptar", firmas un <strong>contrato de responsabilidad</strong>, aceptando todos los riesgos de participar en el juego. Si eliges "Rechazar", no podrás jugar, recargar ni retirar Neig, pero podrás usar el chat y observar a otros jugadores.</p>
+                <p><strong>2. Naturaleza del Juego</strong></p>
+                <p>Cada participación requiere apostar <strong>100 Neig</strong> (equivalente a 100$ en el juego). Puedes perder la totalidad de tu apuesta o ganar una porción del pozo (89% al ganador, 5% a desarrolladores, 6% al pozo). <strong>Tú asumes todo el riesgo</strong> de pérdida o ganancia.</p>
+                <p><strong>3. Consecuencias de tu Elección</strong></p>
+                <p>- <strong>Aceptar</strong>: Te permite jugar, recargar Neig, retirar Neig, y participar plenamente en la plataforma.<br>- <strong>Rechazar</strong>: Solo podrás usar el chat (enviar mensajes de texto o audio) y ver cómo juegan otros, sin apostar, recargar, ni retirar.</p>
+                <p><strong>4. Responsabilidad del Usuario</strong></p>
+                <p>Al aceptar, reconoces que <strong>eres completamente responsable</strong> por cualquier pérdida de Neig, decisiones financieras, o resultados del juego. La plataforma no ofrece reembolsos ni compensaciones.</p>
+                <p><strong>5. Elegibilidad</strong></p>
+                <p>Debes ser mayor de 18 años y residir en una jurisdicción donde el uso de Neig sea legal.</p>
+                <p><strong>6. Neighborcoin (Neig)</strong></p>
+                <p>Neig es una moneda virtual solo para la plataforma. Retiros (MetaMask o CVU/CBU) pueden tardar 7 días, pero requieren aceptar estos términos.</p>
+                <p><strong>7. Conducta</strong></p>
+                <p>Prohibido usar bots, trampas, o actividades fraudulentas. Podemos suspender cuentas sin reembolsos.</p>
+                <p><strong>8. Priv掖</p>
+                <p>Recopilamos datos (usuario, email, MetaMask) para retiros y mejoras. No compartimos sin tu consentimiento.</p>
+                <p><strong>9. Limitación de Responsabilidad</strong></p>
+                <p>La plataforma es "tal cual". No nos responsabilizamos por pérdidas, errores técnicos, o interrupciones.</p>
+                <p><strong>10. Modificaciones</strong></p>
+                <p>Podemos actualizar estos términos. Tu uso continuado implica aceptación.</p>
+                <p><strong>11. Contacto</strong></p>
+                <p>Contáctanos en <a href="mailto:rod.arena7@gmail.com">rod.arena7@gmail.com</a>.</p>
+                <p><strong>12. Aviso Final</strong></p>
+                <p>Apostar 100 Neig implica riesgo de pérdida total. <strong>Al aceptar, firmas este contrato</strong> y juegas bajo tu responsabilidad. Si rechazas, solo podrás chatear y observar. ¡Elige sabiamente!</p>
+                <p>Este texto es largo para asegurar que el scrollbar aparezca y que debas desplazarte hasta el final para aceptar o rechazar.</p>
+                <p>Gracias por ser parte de La Moneda del Vecindario.</p>
+            </div>
+            <button id="policies-accept" disabled>Aceptar</button>
+            <button id="policies-reject">Rechazar</button>
+            <p id="policies-message"></p>
+        </div>
+    </div>
     <div id="game-container">
         <div id="user-info">
             <p id="username-display">Usuario: </p>
+            <p id="coins-display">Saldo: 1000 Neig</p>
         </div>
+        <button id="stats-button">Estadísticas</button>
         <div id="pot-display">Pozo: 0 Neig</div>
+        <div id="last-players">Últimos Jugadores: Ninguno</div>
         <div id="timer-display">
             <p>Tiempo Restante: 240 segundos</p>
+            <div id="progress-bar">
+                <div id="progress-bar-fill"></div>
+            </div>
+            <p id="timer-percentage">100%</p>
         </div>
         <button id="compete-button">Jugar</button>
-        <div id="message-box">Bienvenido al juego.</div>
-        <button id="logout-button">Cerrar Sesión</button>
+        <div id="message-box">Bienvenido al juego. ¡Presiona el botón para competir!</div>
+        <div class="flex flex-wrap justify-center gap-2">
+            <button id="reload-button" class="button">Recargar Neig</button>
+            <button id="withdraw-button" class="button">Retirar Neig</button>
+            <button id="settings-button" class="button">Configuración</button>
+            <button id="logout-button" class="button">Cerrar Sesión</button>
+        </div>
+        <div id="policies-status">
+            <input type="checkbox" id="policies-checkbox" disabled>
+            <span id="policies-text"></span>
+            <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
+        </div>
         <div id="chat-container">
             <div id="users-list">Usuarios conectados: 0</div>
             <div id="messages"></div>
             <form id="message-form">
-                <textarea id="message-input" placeholder="Escribe un mensaje"></textarea>
-                <div id="message-buttons">
-                    <button type="button" id="record-button">Grabar Audio</button>
-                    <button type="submit" id="send-button">Enviar</button>
-                </div>
+                <input type="text" id="message-input" placeholder="Escribe un mensaje">
+                <button type="button" id="record-button">Grabar Audio</button>
+                <button type="submit" id="send-button">Enviar</button>
                 <p id="chat-message"></p>
             </form>
         </div>
     </div>
-
+    <div id="settings-container">
+        <div id="settings-form">
+            <h2>Configuración</h2>
+            <input type="text" id="settings-display-name" placeholder="Nombre ficticio">
+            <input type="email" id="settings-email" placeholder="Correo electrónico">
+            <input type="text" id="settings-cvu" placeholder="CVU/CBU o Alias">
+            <input type="text" id="settings-metamask" placeholder="Dirección MetaMask">
+            <button id="settings-save">Guardar</button>
+            <button id="settings-back">Volver</button>
+            <p id="settings-message"></p>
+        </div>
+    </div>
+    <div id="withdraw-form">
+        <h2>Retirar Neig</h2>
+        <input type="number" id="withdraw-amount" placeholder="Cantidad a retirar" min="1" required>
+        <select id="withdraw-currency">
+            <option value="Neig">Neig</option>
+            <option value="Pesos">Pesos</option>
+        </select>
+        <button id="withdraw-submit">Confirmar Retiro</button>
+        <button id="withdraw-cancel">Cancelar</button>
+        <p id="withdraw-message"></p>
+    </div>
+    <div id="reload-form">
+        <h2>Recargar Neig</h2>
+        <input type="number" id="reload-amount" placeholder="Cantidad a recargar" min="1" required>
+        <button id="reload-submit">Confirmar</button>
+        <button id="reload-cancel">Cancelar</button>
+        <p id="reload-message"></p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.')"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar EmailJS
+            try {
+                if (typeof emailjs !== 'undefined') {
+                    emailjs.init("KWVSgPsdHmSAURvGd"); // Public Key
+                } else {
+                    showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
+                }
+            } catch (error) {
+                console.error('Error al inicializar EmailJS:', error);
+                showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.');
+            }
+
+            // PWA Setup
+            let deferredPrompt = null;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+            });
+            window.addEventListener('appinstalled', () => {
+                showMessage('¡La Moneda del Vecindario ha sido instalada!');
+                deferredPrompt = null;
+            });
+
+            // Registrar Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(error => {
+                    console.error('Error al registrar Service Worker:', error);
+                });
+            }
+
+            // Configuración inicial
+            const POLICIES_VERSION = "1.3.0";
+            let playerCoins = 1000;
+            let hasParticipated = false;
+            let username = null;
+            let sessionId = null;
+            const developerPercentage = 0.05;
+            const potPercentage = 0.06;
+            let pot = 0;
+            let timerInterval = null;
+            const lastPlayers = []; // Array para últimos jugadores
+
             // Elementos del DOM
             const authContainer = document.getElementById('auth-container');
             const gameContainer = document.getElementById('game-container');
+            const settingsContainer = document.getElementById('settings-container');
+            const policiesContainer = document.getElementById('policies-container');
+            const withdrawForm = document.getElementById('withdraw-form');
+            const reloadForm = document.getElementById('reload-form');
             const authTitle = document.getElementById('auth-title');
             const authUsername = document.getElementById('auth-username');
             const authPassword = document.getElementById('auth-password');
-            const authConfirmPassword = document.getElementById('auth-confirm-password');
             const authSubmit = document.getElementById('auth-submit');
             const authToggle = document.getElementById('auth-toggle');
             const authMessage = document.getElementById('auth-message');
-            const usernameDisplay = document.getElementById('username-display');
+            const statsButton = document.getElementById('stats-button');
             const potDisplay = document.getElementById('pot-display');
+            const lastPlayersDisplay = document.getElementById('last-players');
             const timerDisplay = document.getElementById('timer-display');
             const competeButton = document.getElementById('compete-button');
             const messageBox = document.getElementById('message-box');
+            const reloadButton = document.getElementById('reload-button');
+            const withdrawButton = document.getElementById('withdraw-button');
+            const settingsButton = document.getElementById('settings-button');
             const logoutButton = document.getElementById('logout-button');
+            const usernameDisplay = document.getElementById('username-display');
+            const coinsDisplay = document.getElementById('coins-display');
+            const progressBarFill = document.getElementById('progress-bar-fill');
+            const timerPercentageDisplay = document.getElementById('timer-percentage');
+            const settingsDisplayName = document.getElementById('settings-display-name');
+            const settingsEmail = document.getElementById('settings-email');
+            const settingsCvu = document.getElementById('settings-cvu');
+            const settingsMetamask = document.getElementById('settings-metamask');
+            const settingsSave = document.getElementById('settings-save');
+            const settingsBack = document.getElementById('settings-back');
+            const settingsMessage = document.getElementById('settings-message');
+            const withdrawAmount = document.getElementById('withdraw-amount');
+            const withdrawCurrency = document.getElementById('withdraw-currency');
+            const withdrawSubmit = document.getElementById('withdraw-submit');
+            const withdrawCancel = document.getElementById('withdraw-cancel');
+            const withdrawMessage = document.getElementById('withdraw-message');
+            const reloadAmount = document.getElementById('reload-amount');
+            const reloadSubmit = document.getElementById('reload-submit');
+            const reloadCancel = document.getElementById('reload-cancel');
+            const reloadMessage = document.getElementById('reload-message');
+            const policiesAccept = document.getElementById('policies-accept');
+            const policiesReject = document.getElementById('policies-reject');
+            const policiesMessage = document.getElementById('policies-message');
+            const policiesContent = document.getElementById('policies-content');
+            const policiesStatus = document.getElementById('policies-status');
+            const policiesCheckbox = document.getElementById('policies-checkbox');
+            const policiesText = document.getElementById('policies-text');
+            const policiesLink = document.getElementById('policies-link');
             const messages = document.getElementById('messages');
             const messageInput = document.getElementById('message-input');
             const recordButton = document.getElementById('record-button');
@@ -253,142 +630,362 @@
             const usersList = document.getElementById('users-list');
             const chatMessage = document.getElementById('chat-message');
 
-            let username = null;
-            let hasParticipated = false;
-            let mediaRecorder = null;
+            // Estado de autenticación
             let isLoginMode = true;
 
-            // Socket.IO
-            const socket = io('https://neigame.onrender.com', {
-                transports: ['websocket', 'polling'],
-                reconnectionAttempts: 5,
-                path: '/socket.io'
+            // Políticas en HTML (completo para ventana emergente)
+            const policiesHtml = `
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Políticas y Condiciones - La Moneda del Vecindario</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+                    <style>
+                        body {
+                            font-family: 'Press Start 2P', cursive;
+                            background: url('https://images.unsplash.com/photo-1611345613376-12b6f4a7e6cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+                            background-size: cover;
+                            background-color: #000;
+                            color: #fff;
+                            margin: 20px;
+                            padding: 20px;
+                            box-sizing: border-box;
+                            image-rendering: pixelated;
+                        }
+                        .container {
+                            background-color: rgba(0, 0, 0, 0.9);
+                            padding: 2rem;
+                            border: 4px solid #ffeb3b;
+                            border-radius: 8px;
+                            box-shadow: 0 0 10px #ffeb3b, 0 0 20px #e91e63;
+                            max-width: 800px;
+                            margin: 0 auto;
+                            text-align: left;
+                            font-size: 0.7rem;
+                        }
+                        h1 {
+                            color: #ffeb3b;
+                            text-shadow: 0 0 8px #e91e63;
+                            font-size: 1.2rem;
+                            text-align: center;
+                            margin-bottom: 1rem;
+                        }
+                        h2 {
+                            color: #03a9f4;
+                            font-size: 0.9rem;
+                            margin-top: 1.5rem;
+                            margin-bottom: 0.5rem;
+                        }
+                        p {
+                            line-height: 1.6;
+                            margin-bottom: 1rem;
+                            color: #fff;
+                            text-shadow: 0 0 5px #03a9f4;
+                        }
+                        ul {
+                            list-style: none;
+                            padding: 0;
+                            margin-bottom: 1rem;
+                        }
+                        li {
+                            margin-bottom: 0.5rem;
+                            position: relative;
+                            padding-left: 1.5rem;
+                        }
+                        li:before {
+                            content: '➤';
+                            color: #4caf50;
+                            position: absolute;
+                            left: 0;
+                        }
+                        a {
+                            color: #03a9f4;
+                            text-decoration: underline;
+                            cursor: pointer;
+                        }
+                        a:hover {
+                            color: #0288d1;
+                        }
+                        .highlight {
+                            color: #ffeb3b;
+                            font-weight: bold;
+                        }
+                        @media (max-width: 640px) {
+                            body {
+                                padding: 10px;
+                                margin: 10px;
+                            }
+                            .container {
+                                padding: 1rem;
+                                font-size: 0.6rem;
+                            }
+                            h1 {
+                                font-size: 1rem;
+                            }
+                            h2 {
+                                font-size: 0.8rem;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Políticas, Términos y Condiciones</h1>
+                        <p><strong>Última actualización: 4 de mayo de 2025</strong></p>
+                        <p>Bienvenido a <strong>La Moneda del Vecindario</strong>, una plataforma de juego competitivo que utiliza Neighborcoin (Neig) como moneda virtual. Al participar, aceptas los siguientes términos y condiciones, que rigen tu uso del juego y delegan toda la responsabilidad de tus decisiones a ti, el usuario.</p>
+                        <h2>1. Aceptación de los Términos</h2>
+                        <p>Al hacer clic en "Aceptar", <span class="highlight">firmas un contrato de responsabilidad</span>, aceptando todos los riesgos asociados con el juego, incluyendo la posible pérdida de Neighborcoin (Neig). Si eliges "Rechazar", no podrás jugar, recargar ni retirar Neig, pero podrás participar en el chat y observar a otros jugadores.</p>
+                        <h2>2. Naturaleza del Juego y Apuestas</h2>
+                        <p>La Moneda del Vecindario es un juego competitivo donde apuestas <span class="highlight">100 Neig</span> (equivalente a 100$ en el contexto del juego) por ronda. Los resultados son inciertos, y puedes <span class="highlight">perder la totalidad de tu apuesta</span> o ganar una porción del pozo.</p>
+                        <ul>
+                            <li><strong>Apuesta Fija</strong>: Cada ronda requiere apostar exactamente 100 Neig. No hay excepciones.</li>
+                            <li><strong>Riesgo</strong>: Aceptas que puedes perder los 100 Neig apostados sin garantía de ganancia.</li>
+                            <li><strong>Distribución del Pozo</strong>: El pozo se distribuye así: 89% al ganador, 5% a los desarrolladores, 6% al pozo siguiente.</li>
+                        </ul>
+                        <h2>3. Consecuencias de tu Elección</h2>
+                        <p>Tu decisión de aceptar o rechazar estos términos determina tu acceso a la plataforma:</p>
+                        <ul>
+                            <li><strong>Aceptar</strong>: Te permite jugar (apostar 100 Neig por ronda), recargar Neig, retirar Neig, y participar plenamente en todas las funciones de la plataforma.</li>
+                            <li><strong>Rechazar</strong>: Solo podrás usar el chat (enviar mensajes de texto o audio) y observar el juego (ver el pozo, temporizador, y últimos jugadores). No podrás apostar, recargar, ni retirar Neig.</li>
+                        </ul>
+                        <h2>4. Responsabilidad del Usuario</h2>
+                        <p>Al aceptar, <span class="highlight">tú asumes toda la responsabilidad</span> por:</p>
+                        <ul>
+                            <li>Pérdidas de Neig debido a apuestas.</li>
+                            <li>Decisiones financieras o personales derivadas de tu participación.</li>
+                            <li>Resultados del juego, que no garantizan ganancias.</li>
+                        </ul>
+                        <p>La plataforma no ofrece reembolsos ni compensaciones por pérdidas. Juega solo con Neig que estés dispuesto a perder.</p>
+                        <h2>5. Elegibilidad</h2>
+                        <p>Debes:</p>
+                        <ul>
+                            <li>Ser mayor de 18 años.</li>
+                            <li>Residir en una jurisdicción donde el uso de Neig sea legal.</li>
+                            <li>Cumplir con las leyes locales. Es tu responsabilidad verificar la legalidad.</li>
+                        </ul>
+                        <h2>6. Neighborcoin (Neig)</h2>
+                        <p>Neig es una moneda virtual exclusiva de la plataforma, usada para apuestas y retiros. No tiene valor fuera de La Moneda del Vecindario.</p>
+                        <ul>
+                            <li><strong>Retiros</strong>: Requieren aceptar estos términos y una dirección MetaMask o CVU/CBU. Pueden tardar 7 días.</li>
+                            <li><strong>Recargas</strong>: Solo disponibles si aceptas los términos.</li>
+                        </ul>
+                        <h2>7. Conducta del Usuario</h2>
+                        <p>Prohibimos:</p>
+                        <ul>
+                            <li>Usar bots, scripts, o trampas.</li>
+                            <li>Actividades fraudulentas.</li>
+                            <li>Comprometer la integridad del juego.</li>
+                        </ul>
+                        <p>Podemos suspender cuentas sin reembolsos por violaciones.</p>
+                        <h2>8. Privacidad</h2>
+                        <p>Recopilamos datos (usuario, email, MetaMask, CVU/CBU) para retiros y mejoras. No compartimos datos sin tu consentimiento, salvo requerimiento legal.</p>
+                        <h2>9. Limitación de Responsabilidad</h2>
+                        <p>La plataforma es <span class="highlight">"tal cual"</span>. No nos responsabilizamos por:</p>
+                        <ul>
+                            <li>Pérdidas de Neig.</li>
+                            <li>Errores técnicos o interrupciones.</li>
+                            <li>Daños derivados de tu uso.</li>
+                        </ul>
+                        <h2>10. Modificaciones</h2>
+                        <p>Podemos actualizar estos términos. Las actualizaciones se notificarán, y tu uso continuado implica aceptación.</p>
+                        <h2>11. Terminación</h2>
+                        <p>Podemos suspender o terminar tu acceso por violaciones, sin reembolsos.</p>
+                        <h2>12. Contacto</h2>
+                        <p>Contáctanos en <a href="mailto:rod.arena7@gmail.com">rod.arena7@gmail.com</a>.</p>
+                        <h2>13. Aviso Final</h2>
+                        <p>Al aceptar, <span class="highlight">firmas este contrato</span> y reconoces que apostar 100 Neig implica riesgo de pérdida total. Si rechazas, solo podrás chatear y observar. Juega responsablemente. ¡Gracias por unirte a La Moneda del Vecindario!</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            const statsHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Estadísticas del Juego</h1><p>No hay estadísticas disponibles en modo local.</p></body></html>`;
+
+            // Configuración del chat
+            const socket = io('http://localhost:3000', { transports: ['websocket'] });
+            let mediaRecorder = null;
+
+            // Habilitar botón Aceptar al llegar al final de políticas
+            policiesContent.addEventListener('scroll', () => {
+                const isAtBottom = policiesContent.scrollHeight - policiesContent.scrollTop <= policiesContent.clientHeight + 1;
+                policiesAccept.disabled = !isAtBottom;
             });
-
-            socket.on('connect', () => {
-                console.log('Conectado al servidor');
-                if (username) {
-                    socket.emit('join', username);
-                }
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('Error de conexión:', error);
-                showMessage('Error al conectar con el servidor.');
-            });
-
-            // Chat
-            socket.on('chat message', ({ user, message, type }) => {
-                addMessage({ user, content: message, type });
-            });
-
-            socket.on('users update', (users) => {
-                updateUsersList(users);
-            });
-
-            socket.on('user joined', ({ user }) => {
-                addMessage({ user: 'Sistema', content: `${user} se ha unido`, type: 'text' });
-            });
-
-            socket.on('user left', ({ user }) => {
-                addMessage({ user: 'Sistema', content: `${user} ha abandonado`, type: 'text' });
-            });
-
-            // Temporizador
-            socket.on('timer update', ({ seconds, pot, winner }) => {
-                potDisplay.textContent = `Pozo: ${pot} Neig`;
-                const minutes = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-                if (seconds <= 0 && winner) {
-                    showMessage(`¡${winner} ganó ${Math.round(pot * 0.89)} Neig!`);
-                    hasParticipated = false;
-                    competeButton.disabled = false;
-                }
-            });
-
-            // Funciones de Mensajes
-            function showMessage(message) {
-                messageBox.textContent = message;
-            }
-
-            function showAuthMessage(message) {
-                authMessage.textContent = message;
-            }
 
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
             }
 
-            // Funciones de Chat
             function addMessage({ user, content, type = 'text' }) {
-                const div = document.createElement('div');
-                div.className = `message ${type}`;
-                if (type === 'text') {
-                    div.textContent = `${user}: ${content}`;
-                } else if (type === 'audio') {
-                    const audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.src = content;
-                    div.textContent = `${user}: `;
-                    div.appendChild(audio);
+                try {
+                    console.log(`Añadiendo mensaje: ${user} - ${type} - ${content.substring(0, 50)}...`);
+                    const div = document.createElement('div');
+                    div.className = `message ${type}`;
+                    if (type === 'text') {
+                        div.textContent = `${user}: ${content}`;
+                    } else if (type === 'audio') {
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.src = content;
+                        div.textContent = `${user}: `;
+                        div.appendChild(audio);
+                    }
+                    messages.appendChild(div);
+                    messages.scrollTop = messages.scrollHeight;
+                } catch (error) {
+                    console.error('Error al añadir mensaje:', error);
+                    showChatMessage('Error al mostrar mensaje.');
                 }
-                messages.appendChild(div);
-                messages.scrollTop = messages.scrollHeight;
             }
 
             function updateUsersList(users) {
-                usersList.innerHTML = `Usuarios conectados: ${users.length}`;
-                const ul = document.createElement('ul');
-                users.forEach(user => {
-                    const li = document.createElement('li');
-                    li.textContent = user;
-                    ul.appendChild(li);
-                });
-                usersList.appendChild(ul);
+                try {
+                    console.log('Actualizando lista de usuarios:', users);
+                    usersList.innerHTML = '<strong>Usuarios conectados:</strong>';
+                    if (users.length === 0) {
+                        const p = document.createElement('p');
+                        p.textContent = 'No hay usuarios conectados';
+                        usersList.appendChild(p);
+                    } else {
+                        const ul = document.createElement('ul');
+                        users.forEach(user => {
+                            const li = document.createElement('li');
+                            li.textContent = user;
+                            ul.appendChild(li);
+                        });
+                        usersList.appendChild(ul);
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar lista de usuarios:', error);
+                    showChatMessage('Error al actualizar lista de usuarios.');
+                }
             }
+
+            function updateLastPlayers() {
+                try {
+                    console.log('Actualizando lista de últimos jugadores:', lastPlayers);
+                    lastPlayersDisplay.innerHTML = '<strong>Últimos Jugadores:</strong>';
+                    if (lastPlayers.length === 0) {
+                        const p = document.createElement('p');
+                        p.textContent = 'Ninguno';
+                        lastPlayersDisplay.appendChild(p);
+                    } else {
+                        const ul = document.createElement('ul');
+                        lastPlayers.forEach(player => {
+                            const li = document.createElement('li');
+                            li.textContent = `${player.username} - ${player.timestamp}`;
+                            ul.appendChild(li);
+                        });
+                        lastPlayersDisplay.appendChild(ul);
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar últimos jugadores:', error);
+                    showMessage('Error al actualizar últimos jugadores.');
+                }
+            }
+
+            // Inicializar chat con mensaje de sistema
+            function initializeChat() {
+                addMessage({ user: 'Sistema', content: 'Chat iniciado. ¡Bienvenido!', type: 'text' });
+            }
+
+            socket.on('connect', () => {
+                console.log('Conectado al servidor Socket.IO');
+                if (username) {
+                    getUser(username, user => {
+                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                        socket.emit('join', displayName);
+                    });
+                }
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Error de conexión Socket.IO:', error);
+                showChatMessage('Error al conectar al servidor de chat.');
+            });
+
+            socket.on('chat message', ({ user, message, type }) => {
+                console.log(`Mensaje recibido: ${user} - ${type}`);
+                addMessage({ user, content: message, type });
+            });
+
+            socket.on('users update', (users) => {
+                console.log('Lista de usuarios recibida:', users);
+                updateUsersList(users);
+            });
+
+            socket.on('user joined', ({ user }) => {
+                console.log(`Usuario unido: ${user}`);
+                addMessage({ user: 'Sistema', content: `${user} se ha unido al chat`, type: 'text' });
+            });
+
+            socket.on('user left', ({ user }) => {
+                console.log(`Usuario desconectado: ${user}`);
+                addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
+            });
 
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const message = messageInput.value.trim();
-                if (message && username) {
-                    socket.emit('chat message', { user: username, message, type: 'text' });
-                    messageInput.value = '';
-                } else {
-                    showChatMessage('Inicia sesión para enviar mensajes.');
+                const message = messageInput.value.trim().toLowerCase();
+                if (message) {
+                    getUser(username, user => {
+                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                        if (message === 'descargar' || message === 'cerrar') {
+                            if (deferredPrompt) {
+                                deferredPrompt.prompt();
+                                deferredPrompt.userChoice.then(choiceResult => {
+                                    if (choiceResult.outcome === 'accepted') {
+                                        showMessage('Instalando La Moneda del Vecindario...');
+                                    } else {
+                                        showMessage('Instalación cancelada.');
+                                    }
+                                    deferredPrompt = null;
+                                });
+                            } else {
+                                showMessage('La instalación no está disponible en este navegador.');
+                            }
+                            messageInput.value = '';
+                        } else {
+                            console.log(`Enviando mensaje de texto: ${message}`);
+                            socket.emit('chat message', { user: displayName, message, type: 'text' });
+                            messageInput.value = '';
+                        }
+                    });
                 }
             });
 
             recordButton.addEventListener('click', async () => {
-                if (!username) {
-                    showChatMessage('Inicia sesión para grabar audio.');
-                    return;
-                }
                 if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new MediaRecorder(stream);
                         const chunks = [];
+
                         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
                         mediaRecorder.onstop = () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
                             const reader = new FileReader();
                             reader.onload = () => {
-                                socket.emit('chat message', {
-                                    user: username,
-                                    message: reader.result,
-                                    type: 'audio'
+                                getUser(username, user => {
+                                    const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                                    console.log('Enviando mensaje de audio');
+                                    socket.emit('chat message', {
+                                        user: displayName,
+                                        message: reader.result,
+                                        type: 'audio'
+                                    });
                                 });
                             };
                             reader.readAsDataURL(blob);
                         };
+
                         mediaRecorder.start();
                         recordButton.textContent = 'Detener Grabación';
                         recordButton.classList.add('recording');
                     } catch (error) {
+                        console.error('Error al acceder al micrófono:', error);
                         showChatMessage('Error al acceder al micrófono.');
-                        console.error(error);
                     }
                 } else {
                     mediaRecorder.stop();
@@ -398,64 +995,182 @@
                 }
             });
 
-            // Gestión de Usuarios
-            function saveUser(username, password) {
-                const users = JSON.parse(localStorage.getItem('users') || '{}');
-                users[username] = { password };
-                localStorage.setItem('users', JSON.stringify(users));
+            // Funciones de mensajes
+            function showAuthMessage(message) {
+                if (authMessage) {
+                    authMessage.textContent = message;
+                } else {
+                    console.warn('Elemento auth-message no encontrado');
+                }
+            }
+
+            function showMessage(message) {
+                if (messageBox) {
+                    messageBox.textContent = message;
+                    while (messageBox.childNodes.length > 1) {
+                        messageBox.removeChild(messageBox.lastChild);
+                    }
+                } else {
+                    console.warn('Elemento message-box no encontrado');
+                }
+            }
+
+            function showPoliciesMessage(message) {
+                if (policiesMessage) {
+                    policiesMessage.textContent = message;
+                } else {
+                    console.warn('Elemento policies-message no encontrado');
+                }
+            }
+
+            function showSettingsMessage(message) {
+                if (settingsMessage) {
+                    settingsMessage.textContent = message;
+                } else {
+                    console.warn('Elemento settings-message no encontrado');
+                }
+            }
+
+            function showWithdrawMessage(message) {
+                if (withdrawMessage) {
+                    withdrawMessage.textContent = message;
+                } else {
+                    console.warn('Elemento withdraw-message no encontrado');
+                }
+            }
+
+            function showReloadMessage(message) {
+                if (reloadMessage) {
+                    reloadMessage.textContent = message;
+                } else {
+                    console.warn('Elemento reload-message no encontrado');
+                }
+            }
+
+            // Funciones de autenticación
+            function saveUser(username, password, coins = 1000, settings = {}, policiesAccepted = false, policiesVersion = '') {
+                try {
+                    const users = JSON.parse(localStorage.getItem('users') || '{}');
+                    users[username] = { password, coins, settings, policiesAccepted, policiesVersion };
+                    localStorage.setItem('users', JSON.stringify(users));
+                } catch (error) {
+                    console.error('Error al guardar usuario:', error);
+                    showAuthMessage('Error al guardar datos del usuario.');
+                }
             }
 
             function getUser(username, callback) {
-                const users = JSON.parse(localStorage.getItem('users') || '{}');
-                callback(users[username] || {});
+                try {
+                    const users = JSON.parse(localStorage.getItem('users') || '{}');
+                    callback(users[username] || {});
+                } catch (error) {
+                    console.error('Error en getUser:', error);
+                    callback({});
+                }
             }
 
             function loginUser(username, password, callback) {
                 getUser(username, user => {
-                    if (user && user.password === password) {
-                        localStorage.setItem('currentUser', username);
-                        callback(true);
-                    } else {
-                        callback(false);
+                    try {
+                        if (user && user.password === password) {
+                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
+                            localStorage.setItem('session_' + username, sessionId);
+                            localStorage.setItem('currentUser', username);
+                            callback({ success: true, sessionId, policiesAccepted: user.policiesAccepted, policiesVersion: user.policiesVersion });
+                        } else {
+                            callback({ success: false });
+                        }
+                    } catch (error) {
+                        console.error('Error en loginUser:', error);
+                        callback({ success: false });
                     }
                 });
             }
 
             function registerUser(username, password, callback) {
                 getUser(username, user => {
-                    if (user && user.password) {
+                    try {
+                        if (user && user.password) {
+                            callback(false);
+                        } else {
+                            saveUser(username, password);
+                            const sessionId = Date.now().toString() + Math.random().toString(36).substr(2);
+                            localStorage.setItem('session_' + username, sessionId);
+                            localStorage.setItem('currentUser', username);
+                            callback(true);
+                        }
+                    } catch (error) {
+                        console.error('Error en registerUser:', error);
                         callback(false);
-                    } else {
-                        saveUser(username, password);
-                        localStorage.setItem('currentUser', username);
-                        callback(true);
                     }
                 });
             }
 
-            // Autenticación
+            function checkSession(username) {
+                return localStorage.getItem('session_' + username);
+            }
+
+            function updateUserCoins(username, coins) {
+                try {
+                    const users = JSON.parse(localStorage.getItem('users') || '{}');
+                    if (users[username]) {
+                        users[username].coins = coins;
+                        localStorage.setItem('users', JSON.stringify(users));
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar monedas:', error);
+                    showMessage('Error al actualizar saldo.');
+                }
+            }
+
+            function updateUserSettings(username, settings) {
+                try {
+                    const users = JSON.parse(localStorage.getItem('users') || '{}');
+                    if (users[username]) {
+                        users[username].settings = settings;
+                        localStorage.setItem('users', JSON.stringify(users));
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar configuración:', error);
+                    showSettingsMessage('Error al guardar configuración.');
+                }
+            }
+
+            function updateUserPolicies(username, accepted, version) {
+                try {
+                    const users = JSON.parse(localStorage.getItem('users') || '{}');
+                    if (users[username]) {
+                        users[username].policiesAccepted = accepted;
+                        users[username].policiesVersion = version;
+                        localStorage.setItem('users', JSON.stringify(users));
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar políticas:', error);
+                    showPoliciesMessage('Error al actualizar políticas.');
+                }
+            }
+
             function handleAuthSubmit() {
                 const usernameInput = authUsername.value.trim();
                 const passwordInput = authPassword.value.trim();
-                const confirmPasswordInput = authConfirmPassword.value.trim();
 
                 if (!usernameInput || !passwordInput) {
-                    showAuthMessage('Completa todos los campos.');
-                    return;
-                }
-
-                if (!isLoginMode && passwordInput !== confirmPasswordInput) {
-                    showAuthMessage('Las contraseñas no coinciden.');
+                    showAuthMessage('Por favor, completa todos los campos.');
                     return;
                 }
 
                 if (isLoginMode) {
-                    loginUser(usernameInput, passwordInput, success => {
-                        if (success) {
+                    loginUser(usernameInput, passwordInput, result => {
+                        if (result.success) {
                             username = usernameInput;
+                            sessionId = result.sessionId;
                             authContainer.classList.remove('active');
-                            gameContainer.classList.add('active');
-                            initializeGame();
+                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION) {
+                                gameContainer.classList.add('active');
+                                initializeGame();
+                            } else {
+                                policiesContainer.classList.add('active');
+                            }
                         } else {
                             showAuthMessage('Usuario o contraseña incorrectos.');
                         }
@@ -465,8 +1180,7 @@
                         if (success) {
                             username = usernameInput;
                             authContainer.classList.remove('active');
-                            gameContainer.classList.add('active');
-                            initializeGame();
+                            policiesContainer.classList.add('active');
                         } else {
                             showAuthMessage('El usuario ya existe.');
                         }
@@ -479,63 +1193,472 @@
                 authTitle.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
                 authSubmit.textContent = isLoginMode ? 'Iniciar Sesión' : 'Registrarse';
                 authToggle.textContent = isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión';
-                authConfirmPassword.style.display = isLoginMode ? 'none' : 'block';
                 showAuthMessage('');
                 authUsername.value = '';
                 authPassword.value = '';
-                authConfirmPassword.value = '';
             }
 
-            // Juego
-            function handleCompete() {
-                if (!hasParticipated) {
-                    socket.emit('compete', { username });
-                    hasParticipated = true;
-                    competeButton.disabled = true;
-                    showMessage('Has participado en la ronda.');
-                } else {
-                    showMessage('Ya participaste en esta ronda.');
-                }
+            // Funciones de políticas
+            function handlePoliciesAccept() {
+                updateUserPolicies(username, true, POLICIES_VERSION);
+                policiesContainer.classList.remove('active');
+                gameContainer.classList.add('active');
+                initializeGame();
+                showMessage('Has aceptado las Políticas y Condiciones. ¡Bienvenido al juego!');
             }
 
-            function handleLogout() {
-                socket.emit('leave', username);
-                localStorage.removeItem('currentUser');
-                authContainer.classList.add('active');
-                gameContainer.classList.remove('active');
-                username = null;
-                hasParticipated = false;
-                showAuthMessage('Sesión cerrada.');
+            function handlePoliciesReject() {
+                updateUserPolicies(username, false, POLICIES_VERSION);
+                policiesContainer.classList.remove('active');
+                gameContainer.classList.add('active');
+                initializeGame();
+                showMessage('Has rechazado las Políticas y Condiciones. Solo puedes usar el chat y observar el juego.');
             }
 
-            function initializeGame() {
-                usernameDisplay.textContent = `Usuario: ${username}`;
-                socket.emit('join', username);
-                showMessage(`¡Bienvenido, ${username}!`);
-            }
-
-            // Verificar usuario existente
-            const currentUser = localStorage.getItem('currentUser');
-            if (currentUser) {
-                getUser(currentUser, user => {
-                    if (user && user.password) {
-                        username = currentUser;
-                        authContainer.classList.remove('active');
-                        gameContainer.classList.add('active');
-                        initializeGame();
-                    } else {
-                        localStorage.removeItem('currentUser');
-                        showAuthMessage('Inicia sesión nuevamente.');
+            function updatePoliciesStatus() {
+                getUser(username, user => {
+                    try {
+                        if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                            policiesStatus.classList.remove('rejected');
+                            policiesStatus.classList.add('accepted');
+                            policiesCheckbox.checked = true;
+                            policiesText.textContent = 'Ud. aceptó las ';
+                        } else {
+                            policiesStatus.classList.remove('accepted');
+                            policiesStatus.classList.add('rejected');
+                            policiesCheckbox.checked = false;
+                            policiesText.textContent = 'Ud. no aceptó las ';
+                        }
+                    } catch (error) {
+                        console.error('Error al actualizar estado de políticas:', error);
                     }
                 });
             }
 
-            // Event Listeners
-            authSubmit.addEventListener('click', handleAuthSubmit);
-            authToggle.addEventListener('click', toggleAuthMode);
-            competeButton.addEventListener('click', handleCompete);
-            logoutButton.addEventListener('click', handleLogout);
-        });
-    </script>
-</body>
-</html>
+            function showPoliciesWindow() {
+                try {
+                    const policiesWindow = window.open('', '_blank');
+                    if (policiesWindow) {
+                        policiesWindow.document.write(policiesHtml);
+                        policiesWindow.document.close();
+                    } else {
+                        showMessage('No se pudo abrir la ventana de políticas. Desactiva el bloqueador de ventanas emergentes.');
+                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(policiesHtml);
+                        const link = document.createElement('a');
+                        link.href = dataUrl;
+                        link.download = 'politicas_y_condiciones.html';
+                        link.textContent = 'Descargar Políticas';
+                        link.style.color = '#03a9f4';
+                        link.style.textDecoration = 'underline';
+                        link.style.fontSize = '0.7rem';
+                        messageBox.appendChild(document.createElement('br'));
+                        messageBox.appendChild(link);
+                    }
+                } catch (error) {
+                    console.error('Error al mostrar ventana de políticas:', error);
+                    showMessage('Error al mostrar políticas.');
+                }
+            }
+
+            // Funciones de estadísticas
+            function showStatsWindow() {
+                try {
+                    const statsWindow = window.open('', '_blank');
+                    if (statsWindow) {
+                        statsWindow.document.write(statsHtml);
+                        statsWindow.document.close();
+                    } else {
+                        showMessage('No se pudo abrir la ventana de estadísticas. Desactiva el bloqueador de ventanas emergentes.');
+                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(statsHtml);
+                        const link = document.createElement('a');
+                        link.href = dataUrl;
+                        link.download = 'estadisticas_juego.html';
+                        link.textContent = 'Descargar Estadísticas';
+                        link.style.color = '#03a9f4';
+                        link.style.textDecoration = 'underline';
+                        link.style.fontSize = '0.7rem';
+                        messageBox.appendChild(document.createElement('br'));
+                        messageBox.appendChild(link);
+                    }
+                } catch (error) {
+                    console.error('Error al mostrar estadísticas:', error);
+                    showMessage('Error al cargar estadísticas.');
+                }
+            }
+
+            // Funciones de configuración
+            function loadUserSettings() {
+                getUser(username, user => {
+                    try {
+                        if (user && user.settings) {
+                            settingsDisplayName.value = user.settings.displayName || '';
+                            settingsEmail.value = user.settings.email || '';
+                            settingsCvu.value = user.settings.cvu || '';
+                            settingsMetamask.value = user.settings.metamask || '';
+                        }
+                    } catch (error) {
+                        console.error('Error al cargar configuración:', error);
+                        showSettingsMessage('Error al cargar configuración.');
+                    }
+                });
+            }
+
+            function handleSettingsSave() {
+                try {
+                    const settings = {
+                        displayName: settingsDisplayName.value.trim(),
+                        email: settingsEmail.value.trim(),
+                        cvu: settingsCvu.value.trim(),
+                        metamask: settingsMetamask.value.trim()
+                    };
+                    updateUserSettings(username, settings);
+                    showSettingsMessage('Configuración guardada exitosamente.');
+                    setTimeout(() => {
+                        settingsContainer.classList.remove('active');
+                        gameContainer.classList.add('active');
+                        showSettingsMessage('');
+                    }, 1000);
+                } catch (error) {
+                    console.error('Error al guardar configuración:', error);
+                    showSettingsMessage('Error al guardar configuración.');
+                }
+            }
+
+            function handleSettingsBack() {
+                settingsContainer.classList.remove('active');
+                gameContainer.classList.add('active');
+                showSettingsMessage('');
+            }
+
+            // Funciones de retiro
+            async function sendWithdrawalNotification(amount, currency, realName, displayName, cvu) {
+                try {
+                    if (typeof emailjs === 'undefined') {
+                        throw new Error('EmailJS no está disponible');
+                    }
+                    const templateParams = {
+                        amount: amount,
+                        currency: currency,
+                        real_name: realName,
+                        display_name: displayName || realName,
+                        cvu: cvu || 'No proporcionado',
+                        to_email: 'rod.arena7@gmail.com'
+                    };
+                    await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
+                    showWithdrawMessage('Solicitud de retiro enviada.');
+                } catch (error) {
+                    console.error('Error al enviar notificación:', error);
+                    showWithdrawMessage('Error al enviar solicitud de retiro. Verifica la configuración de EmailJS.');
+                }
+            }
+
+            function handleWithdraw() {
+                getUser(username, user => {
+                    if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                        showMessage('Debes aceptar las Políticas y Condiciones para retirar Neig.');
+                        return;
+                    }
+                    withdrawForm.classList.add('active');
+                    gameContainer.classList.remove('active');
+                    withdrawAmount.value = '';
+                    withdrawCurrency.value = 'Neig';
+                    showWithdrawMessage('');
+                });
+            }
+
+            function handleWithdrawSubmit() {
+                try {
+                    const amount = parseInt(withdrawAmount.value);
+                    const currency = withdrawCurrency.value;
+                    getUser(username, user => {
+                        const settings = user.settings || {};
+                        if (!amount || amount <= 0) {
+                            showWithdrawMessage('Por favor, ingresa una cantidad válida.');
+                            return;
+                        }
+                        if (amount > playerCoins) {
+                            showWithdrawMessage('No tienes suficientes Neig para retirar.');
+                            return;
+                        }
+                        if (!settings.cvu && currency === 'Pesos') {
+                            showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
+                            return;
+                        }
+                        if (!settings.metamask && currency === 'Neig') {
+                            showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
+                            return;
+                        }
+                        playerCoins -= amount;
+                        updateUserCoins(username, playerCoins);
+                        updatePlayerInfo();
+                        sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
+                        withdrawForm.classList.remove('active');
+                        gameContainer.classList.add('active');
+                        showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
+                    });
+                } catch (error) {
+                    console.error('Error al procesar retiro:', error);
+                    showWithdrawMessage('Error al procesar retiro.');
+                }
+            }
+
+            function handleWithdrawCancel() {
+                withdrawForm.classList.remove('active');
+                gameContainer.classList.add('active');
+                showWithdrawMessage('');
+            }
+
+            // Funciones de recarga
+            function handleReload() {
+                getUser(username, user => {
+                    if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                        showMessage('Debes aceptar las Políticas y Condiciones para recargar Neig.');
+                        return;
+                    }
+                    reloadForm.classList.add('active');
+                    gameContainer.classList.remove('active');
+                    reloadAmount.value = '';
+                    showReloadMessage('');
+                });
+            }
+
+            function handleReloadSubmit() {
+                try {
+                    const amount = parseInt(reloadAmount.value);
+                    if (!amount || amount <= 0) {
+                        showReloadMessage('Por favor, ingresa una cantidad válida.');
+                        return;
+                    }
+                    playerCoins += amount;
+                    updateUserCoins(username, playerCoins);
+                    updatePlayerInfo();
+                    reloadForm.classList.remove('active');
+                    gameContainer.classList.add('active');
+                    showMessage(`Se han recargado ${amount} Neig.`);
+                } catch (error) {
+                    console.error('Error al recargar:', error);
+                    showReloadMessage('Error al recargar Neig.');
+                }
+            }
+
+            function handleReloadCancel() {
+                reloadForm.classList.remove('active');
+                gameContainer.classList.add('active');
+                showReloadMessage('');
+            }
+
+            // Funciones para actualizar la UI
+            function updatePotDisplay() {
+                try {
+                    if (potDisplay) {
+                        potDisplay.textContent = `Pozo: ${pot} Neig`;
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar pozo:', error);
+                }
+            }
+
+            function updateTimerDisplay(seconds) {
+                try {
+                    if (timerDisplay) {
+                        const minutes = Math.floor(seconds / 60);
+                        const secs = Math.floor(seconds % 60);
+                        const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 100);
+                        timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}:${milliseconds < 10 ? '0' : ''}${milliseconds}`;
+                        const percentage = Math.max(0, (seconds / 240) * 100);
+                        progressBarFill.style.width = `${percentage}%`;
+                        timerPercentageDisplay.textContent = `${Math.round(percentage)}%`;
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar temporizador:', error);
+                }
+            }
+
+            function updatePlayerInfo() {
+                getUser(username, user => {
+                    try {
+                        const displayName = user && user.settings && user.settings.displayName ? user.settings.displayName : username;
+                        if (usernameDisplay) {
+                            usernameDisplay.textContent = `Usuario: ${displayName}`;
+                        }
+                        if (coinsDisplay) {
+                            coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+                        }
+                        if (competeButton) {
+                            competeButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION || hasParticipated;
+                        }
+                        if (reloadButton) {
+                            reloadButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
+                        }
+                        if (withdrawButton) {
+                            withdrawButton.disabled = !user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION;
+                        }
+                        updatePoliciesStatus();
+                    } catch (error) {
+                        console.error('Error al actualizar info del jugador:', error);
+                    }
+                });
+            }
+
+            // Funciones del juego
+            function startTimer() {
+                let seconds = 240;
+                updateTimerDisplay(seconds);
+                timerInterval = setInterval(() => {
+                    seconds -= 0.1;
+                    if (seconds <= 0) {
+                        endTimer();
+                    }
+                    updateTimerDisplay(seconds);
+                }, 100);
+            }
+
+            function endTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                try {
+                    if (hasParticipated) {
+                        const playerWinAmount = Math.round(pot * 0.89);
+                        const developerWinAmount = Math.round(pot * developerPercentage);
+                        const potLeftover = Math.round(pot * potPercentage);
+                        playerCoins += playerWinAmount;
+                        updateUserCoins(username, playerCoins);
+                        showMessage(`¡Felicidades! Has ganado ${playerWinAmount} Neig.`);
+                        pot = potLeftover;
+                        hasParticipated = false;
+                        lastPlayers.length = 0; // Limpiar lista de jugadores
+                        updateLastPlayers();
+                    } else {
+                        showMessage('El tiempo se agotó y nadie participó.');
+                        pot = 0;
+                        lastPlayers.length = 0; // Limpiar lista de jugadores
+                        updateLastPlayers();
+                    }
+                    updatePotDisplay();
+                    updatePlayerInfo();
+                    if (competeButton) {
+                        competeButton.disabled = false;
+                        competeButton.textContent = 'Jugar';
+                    }
+                } catch (error) {
+                    console.error('Error al finalizar temporizador:', error);
+                    showMessage('Error al finalizar ronda.');
+                }
+            }
+
+            function handleCompete() {
+                getUser(username, user => {
+                    try {
+                        if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                            showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
+                            return;
+                        }
+                        if (playerCoins >= 100) {
+                            if (!hasParticipated) {
+                                playerCoins -= 100;
+                                pot += 100;
+                                updateUserCoins(username, playerCoins);
+                                // Añadir jugador a la lista
+                                const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                                lastPlayers.unshift({
+                                    username: displayName,
+                                    timestamp: new Date().toLocaleTimeString('es-ES', { hour12: false })
+                                });
+                                if (lastPlayers.length > 5) {
+                                    lastPlayers.pop();
+                                }
+                                updateLastPlayers();
+                                updatePlayerInfo();
+                                updatePotDisplay();
+                                hasParticipated = true;
+                                if (competeButton) {
+                                    competeButton.disabled = true;
+                                    competeButton.textContent = 'Esperando...';
+                                }
+                                if (!timerInterval) {
+                                    startTimer();
+                                }
+                                showMessage('Has apostado 100 Neig.');
+                            } else {
+                                showMessage('Ya has participado en esta ronda.');
+                            }
+                        } else {
+                            showMessage('No tienes suficientes Neig para participar.');
+                        }
+                    } catch (error) {
+                        console.error('Error al competir:', error);
+                        showMessage('Error al procesar apuesta.');
+                    }
+                });
+            }
+
+            function handleLogout() {
+                try {
+                    socket.emit('leave', username);
+                    localStorage.removeItem('currentUser');
+                    localStorage.removeItem('session_' + username);
+                    authContainer.classList.add('active');
+                    gameContainer.classList.remove('active');
+                    showAuthMessage('Sesión cerrada.');
+                    username = null;
+                    playerCoins = 1000;
+                    isLoginMode = true;
+                    authTitle.textContent = 'Iniciar Sesión';
+                    authSubmit.textContent = 'Iniciar Sesión';
+                    authToggle.textContent = '¿No tienes cuenta? Regístrate';
+                    authUsername.value = '';
+                    authPassword.value = '';
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                } catch (error) {
+                    console.error('Error al cerrar sesión:', error);
+                    showAuthMessage('Error al cerrar sesión.');
+                }
+            }
+
+            function initializeGame() {
+                try {
+                    if (!checkSession(username)) {
+                        handleLogout();
+                        showAuthMessage('Sesión iniciada en otro dispositivo.');
+                        return;
+                    }
+                    getUser(username, user => {
+                        playerCoins = user.coins || 1000;
+                        const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
+                        socket.emit('join', displayName);
+                        updatePlayerInfo();
+                        showMessage(user.policiesAccepted ? `¡Bienvenido, ${username}!` : `¡Bienvenido, ${username}! Solo puedes chatear y observar hasta aceptar las Políticas.`);
+                        initializeChat();
+                        updateLastPlayers();
+                    });
+                } catch (error) {
+                    console.error('Error al inicializar juego:', error);
+                    showMessage('Error al inicializar el juego.');
+                }
+            }
+
+            // Verificar usuario logueado
+            const currentUser = localStorage.getItem('currentUser');
+            if (currentUser) {
+                getUser(currentUser, user => {
+                    try {
+                        if (user && checkSession(currentUser)) {
+                            username = currentUser;
+                            playerCoins = user.coins || 1000;
+                            authContainer.classList.remove('active');
+                            if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                                gameContainer.classList.add('active');
+                                initializeGame();
+                            } else {
+                                policiesContainer.classList.add('active');
+                            }
+                        } else {
+                            localStorage.removeItem('currentUser');
+                            showAuthMessage('Inicia sesión nuevamente.');
+                        }
+                    } catch (error) {
