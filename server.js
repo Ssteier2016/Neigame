@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,8 +21,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-if (!TELEGRAM_BOT_TOKEN) {
-    console.error('Error: TELEGRAM_BOT_TOKEN no está definido');
+const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
+if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_ADMIN_CHAT_ID) {
+    console.error('Error: TELEGRAM_BOT_TOKEN o TELEGRAM_ADMIN_CHAT_ID no están definidos');
     process.exit(1);
 }
 
@@ -29,14 +31,14 @@ const WEBHOOK_URL = 'https://neigame.onrender.com/telegram-webhook';
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
 // Configurar webhook
-bot.setWebHook(`${WEBHOOK_URL}/${TELEGRAM_BOT_TOKEN}`).then(() => {
+bot.setWebHook(WEBHOOK_URL).then(() => {
     console.log('Webhook configurado exitosamente');
 }).catch(err => {
     console.error('Error al configurar webhook:', err);
 });
 
 // Endpoint para recibir actualizaciones de Telegram
-app.post(`/telegram-webhook/${TELEGRAM_BOT_TOKEN}`, (req, res) => {
+app.post('/telegram-webhook', (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
 });
@@ -45,31 +47,47 @@ const users = {};
 const verificationCodes = {};
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ detail: 'Nombre de usuario y contraseña son requeridos' });
+    }
     if (users[username]) {
         return res.status(400).json({ detail: 'El usuario ya existe' });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
     const verificationCode = Math.random().toString(36).substr(2, 8).toUpperCase();
     verificationCodes[username] = verificationCode;
     users[username] = {
-        password,
+        password: hashedPassword,
         coins: 1000,
         policiesAccepted: false,
         policiesVersion: '',
         telegramVerified: false,
         telegramChatId: null
     };
-    res.json({ message: `Usuario registrado. Envía este código a @Neigbot: ${verificationCode}` });
+
+    // Enviar código de verificación al administrador
+    bot.sendMessage(
+        TELEGRAM_ADMIN_CHAT_ID,
+        `Nuevo registro: ${username}. Código de verificación: ${verificationCode}`
+    ).catch(err => {
+        console.error('Error al enviar mensaje de Telegram:', err);
+    });
+
+    res.json({
+        success: true,
+        message: `Usuario registrado. Envía este código a @Neigbot con /verify ${verificationCode}`
+    });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users[username];
-    if (!user || user.password !== password) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
         return res.status(400).json({ detail: 'Credenciales incorrectas' });
     }
     if (!user.telegramVerified) {
@@ -85,15 +103,50 @@ app.post('/login', (req, res) => {
     });
 });
 
-bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, '¡Hola! Registra tu cuenta en la aplicación y envíame el código de verificación.');
+app.get('/user/:username', (req, res) => {
+    const { username } = req.params;
+    const user = users[username];
+    if (!user) {
+        return res.status(404).json({ detail: 'Usuario no encontrado' });
+    }
+    res.json({
+        username,
+        coins: user.coins,
+        policiesAccepted: user.policiesAccepted,
+        policiesVersion: user.policiesVersion,
+        telegramVerified: user.telegramVerified
+    });
 });
 
-bot.on('message', (msg) => {
+app.post('/update-policies', (req, res) => {
+    const { username, policiesAccepted, policiesVersion } = req.body;
+    const user = users[username];
+    if (!user) {
+        return res.status(404).json({ detail: 'Usuario no encontrado' });
+    }
+    user.policiesAccepted = policiesAccepted;
+    user.policiesVersion = policiesVersion;
+    res.json({ success: true });
+});
+
+app.post('/update-coins', (req, res) => {
+    const { username, coins } = req.body;
+    const user = users[username];
+    if (!user) {
+        return res.status(404).json({ detail: 'Usuario no encontrado' });
+    }
+    user.coins = coins;
+    res.json({ success: true });
+});
+
+bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    const code = msg.text.trim().toUpperCase();
-    if (code.startsWith('/')) return;
+    bot.sendMessage(chatId, '¡Hola! Registra tu cuenta en la aplicación y envíame el código de verificación con /verify <código>.');
+});
+
+bot.onText(/\/verify (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const code = match[1].trim().toUpperCase();
     let verifiedUsername = null;
     for (const [username, storedCode] of Object.entries(verificationCodes)) {
         if (storedCode === code) {
@@ -131,6 +184,11 @@ setInterval(() => {
             gameState.lastWinner = winner;
             gameState.pot = Math.round(gameState.pot * 0.06);
             io.emit('timer update', { seconds: 0, pot: gameState.pot, winner });
+            io.emit('chat message', {
+                user: 'Sistema',
+                message: `¡${winner} ganó ${playerWinAmount} Neig!`,
+                type: 'text'
+            });
         }
         gameState.seconds = 240;
         gameState.players = [];
@@ -152,6 +210,11 @@ io.on('connection', (socket) => {
                 gameState.pot += 100;
                 gameState.players.push(username);
                 io.emit('timer update', { seconds: gameState.seconds, pot: gameState.pot, winner: null });
+                io.emit('chat message', {
+                    user: 'Sistema',
+                    message: `${username} ha apostado 100 Neig.`,
+                    type: 'text'
+                });
             }
         }
     });
