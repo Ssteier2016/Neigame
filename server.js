@@ -17,7 +17,7 @@ const io = socketIo(server, {
 });
 
 const port = process.env.PORT || 3000;
-const botToken = 'YOUR_TELEGRAM_BOT_TOKEN'; // Reemplaza con tu token
+const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token
 const bot = new TelegramBot(botToken, { polling: true });
 
 // Middleware
