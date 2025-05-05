@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const TelegramBot = require('node-telegram-bot-api');
@@ -11,14 +12,14 @@ const server = http.createServer(app);
 const io = socketIo(server, {
     path: '/socket.io',
     cors: {
-        origin: '*',
+        origin: ['http://localhost:3000', 'https://neigame.onrender.com'],
         methods: ['GET', 'POST']
     }
 });
 
 const port = process.env.PORT || 3000;
-const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token real
-const adminChatId = '1624130940'; // Reemplaza con tu ID de chat de Telegram
+const botToken = process.env.TELEGRAM_BOT_TOKEN || '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8';
+const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID || '1624130940';
 
 const bot = new TelegramBot(botToken, {
     polling: {
@@ -30,27 +31,23 @@ const bot = new TelegramBot(botToken, {
     }
 });
 
-// Manejar errores de polling
 bot.on('polling_error', (error) => {
     console.error('Error en polling de Telegram:', error);
 });
 
-// Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Base de datos en memoria
 const users = {};
 const verificationCodes = {};
 const stats = {
-    clicks: {}, // { username: número de clics }
-    winners: [], // [{ username, timestamp, amount }]
-    losses: {}, // { username: Neig perdidos }
-    topWinners: {}, // { username: número de victorias }
-    totalBets: {} // { username: total Neig apostados }
+    clicks: {},
+    winners: [],
+    losses: {},
+    topWinners: {},
+    totalBets: {}
 };
 
-// Rutas
 app.post('/register', async (req, res) => {
     const { username, password, email } = req.body;
     if (!username || !password || !email) {
@@ -105,7 +102,7 @@ app.post('/login', async (req, res) => {
 });
 
 app.get('/user/:username', (req, res) => {
-    const user = users[username];
+    const user = users[req.params.username];
     if (!user) {
         return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
     }
@@ -182,8 +179,11 @@ app.post('/withdraw', (req, res) => {
     if (amount > users[username].coins) {
         return res.status(400).json({ success: false, detail: 'Saldo insuficiente' });
     }
-    if (currency === 'ARS' && !users[username].bankDetails.cbu && !users[username].bankDetails.cvu && !users[username].bankDetails.alias) {
+    if (currency === 'Pesos' && !users[username].bankDetails.cbu && !users[username].bankDetails.cvu && !users[username].bankDetails.alias) {
         return res.status(400).json({ success: false, detail: 'Debe proporcionar datos bancarios para retiros en pesos' });
+    }
+    if (currency === 'Neig' && !users[username].settings.metamask) {
+        return res.status(400).json({ success: false, detail: 'Debe proporcionar una dirección MetaMask para retiros en Neig' });
     }
     users[username].coins -= amount;
     const timestamp = new Date().toLocaleString('es-ES');
@@ -191,6 +191,7 @@ app.post('/withdraw', (req, res) => {
     const notificationMessage = `
 💸 *Nuevo Retiro*
 👤 *Usuario*: ${username}
+📛 *Nombre Ficticio*: ${users[username].settings.displayName || 'No proporcionado'}
 📅 *Fecha*: ${timestamp}
 💰 *Monto*: ${amount} ${currency}
 📧 *Email*: ${users[username].email || 'No proporcionado'}
@@ -198,12 +199,38 @@ app.post('/withdraw', (req, res) => {
   - CBU: ${bankDetails.cbu || 'No proporcionado'}
   - CVU: ${bankDetails.cvu || 'No proporcionado'}
   - Alias: ${bankDetails.alias || 'No proporcionado'}
+🔗 *MetaMask*: ${users[username].settings.metamask || 'No proporcionado'}
     `;
     bot.sendMessage(adminChatId, notificationMessage, { parse_mode: 'Markdown' })
         .catch(error => {
             console.error('Error al enviar notificación de retiro:', error);
         });
     res.json({ success: true });
+});
+
+app.post('/reload', (req, res) => {
+    const { username, amount } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    if (amount <= 0 || !Number.isFinite(amount)) {
+        return res.status(400).json({ success: false, detail: 'Cantidad inválida' });
+    }
+    users[username].coins += amount;
+    res.json({ success: true });
+});
+
+app.get('/game-state', (req, res) => {
+    return res.json({
+        success: true,
+        seconds: timer,
+        pot,
+        lastPlayer
+    });
+});
+
+app.post('/check-session', (req, res) => {
+    return res.json({ success: false });
 });
 
 app.get('/stats', (req, res) => {
@@ -221,7 +248,6 @@ app.get('/stats', (req, res) => {
     });
 });
 
-// Telegram Bot - Verificación
 bot.onText(/\/verify (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const code = match[1].trim();
@@ -235,7 +261,6 @@ bot.onText(/\/verify (.+)/, (msg, match) => {
     bot.sendMessage(chatId, `¡Cuenta verificada para ${username}! Ahora puedes iniciar sesión.`);
 });
 
-// Socket.IO
 const connectedUsers = new Set();
 const players = [];
 let pot = 0;
@@ -286,7 +311,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Temporizador
 setInterval(() => {
     if (timer > 0) {
         timer--;
@@ -318,12 +342,10 @@ setInterval(() => {
     }
 }, 1000);
 
-// Iniciar servidor
 server.listen(port, () => {
     console.log(`Servidor corriendo en el puerto ${port}`);
 });
 
-// Manejo de rutas no encontradas
 app.use((req, res) => {
     res.status(404).json({ success: false, detail: 'Ruta no encontrada' });
 });
