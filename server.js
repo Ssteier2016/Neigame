@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const socketIo = require('socket.io');
 const http = require('http');
 const path = require('path');
+const mercadopago = require('mercadopago'); // Agregar Mercado Pago
 
 const app = express();
 const server = http.createServer(app);
@@ -19,6 +20,11 @@ const io = socketIo(server, {
 const port = process.env.PORT || 3000;
 const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8';
 const ADMIN_CHAT_ID = '1624130940';
+
+// Configurar Mercado Pago
+mercadopago.configure({
+    access_token: 'YOUR_MERCADO_PAGO_ACCESS_TOKEN' // Reemplaza con tu access token de Mercado Pago
+});
 
 const bot = new TelegramBot(botToken, {
     polling: {
@@ -152,6 +158,94 @@ app.post('/update-settings', (req, res) => {
     }
     users[username].settings = settings;
     res.json({ success: true });
+});
+// Ruta para iniciar la recarga con Mercado Pago
+app.post('/reload', async (req, res) => {
+    const { username, amount } = req.body;
+    if (!users[username]) {
+        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
+    }
+    if (amount <= 0) {
+        return res.status(400).json({ success: false, detail: 'Cantidad inválida' });
+    }
+    if (!users[username].policiesAccepted || users[username].policiesVersion !== '1.3.0') {
+        return res.status(403).json({ success: false, detail: 'Debes aceptar las políticas para recargar Neig' });
+    }
+
+    try {
+        // Crear preferencia de pago en Mercado Pago
+        const preference = {
+            items: [
+                {
+                    title: 'Recarga de Neig',
+                    unit_price: parseFloat(amount), // Monto en pesos argentinos (1 Neig = 1 ARS)
+                    quantity: 1,
+                    currency_id: 'ARS'
+                }
+            ],
+            back_urls: {
+                success: 'https://neigame.onrender.com/reload/success',
+                failure: 'https://neigame.onrender.com/reload/failure',
+                pending: 'https://neigame.onrender.com/reload/pending'
+            },
+            auto_return: 'approved',
+            external_reference: `${username}:${amount}`, // Guardar username y amount para identificar el pago
+            notification_url: 'https://neigame.onrender.com/webhook/mercadopago' // Webhook para notificaciones
+        };
+
+        const response = await mercadopago.preferences.create(preference);
+        res.json({
+            success: true,
+            payment_url: response.body.init_point // Enlace para redirigir al usuario
+        });
+    } catch (error) {
+        console.error('Error al crear preferencia de Mercado Pago:', error);
+        res.status(500).json({ success: false, detail: 'Error al procesar la recarga' });
+    }
+});
+
+// Webhook para recibir notificaciones de Mercado Pago
+app.post('/webhook/mercadopago', async (req, res) => {
+    const payment = req.body;
+    console.log('Webhook recibido:', payment);
+
+    if (payment.type === 'payment' && payment.data && payment.data.id) {
+        try {
+            // Consultar el estado del pago
+            const paymentInfo = await mercadopago.payment.get(payment.data.id);
+            if (paymentInfo.body.status === 'approved') {
+                const [username, amount] = paymentInfo.body.external_reference.split(':');
+                if (users[username]) {
+                    users[username].coins += parseInt(amount);
+                    io.emit('coins update', { username, coins: users[username].coins });
+                    try {
+                        await bot.sendMessage(
+                            ADMIN_CHAT_ID,
+                            `💰 Recarga exitosa:\nUsuario: ${username}\nCantidad: ${amount} Neig\nFecha: ${new Date().toLocaleString('es-ES')}`
+                        );
+                    } catch (error) {
+                        console.error('Error al notificar recarga:', error);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error al procesar webhook:', error);
+        }
+    }
+    res.sendStatus(200); // Responder siempre con 200 para evitar reintentos
+});
+
+// Rutas de redirección tras el pago
+app.get('/reload/success', (req, res) => {
+    res.redirect('/?message=Recarga exitosa. Tus Neig han sido acreditados.');
+});
+
+app.get('/reload/failure', (req, res) => {
+    res.redirect('/?message=Error en la recarga. Intenta nuevamente.');
+});
+
+app.get('/reload/pending', (req, res) => {
+    res.redirect('/?message=Recarga pendiente. Espera la confirmación del pago.');
 });
 
 app.post('/withdraw', async (req, res) => {
