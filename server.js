@@ -42,7 +42,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Base de datos en memoria
 const users = {};
-const verificationCodes = {};
+const pendingVerifications = {}; // { chatId: username }
 const stats = {
     clicks: {}, // { username: número de clics }
     winners: [], // [{ username, timestamp, amount }]
@@ -62,18 +62,16 @@ app.post('/register', async (req, res) => {
     }
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const verificationCode = uuidv4().slice(0, 8);
         users[username] = {
             password: hashedPassword,
             coins: 1000,
             telegramVerified: false,
-            verificationCode,
+            telegramChatId: null,
             policiesAccepted: false,
             policiesVersion: null,
             settings: {}
         };
-        verificationCodes[verificationCode] = username;
-        res.json({ success: true, message: `Código de verificación: ${verificationCode}` });
+        res.json({ success: true, message: `Registro exitoso. Verifica tu cuenta enviando /start ${username} a @NeigBot en Telegram.` });
     } catch (error) {
         console.error('Error al registrar:', error);
         res.status(500).json({ success: false, detail: 'Error interno del servidor' });
@@ -89,7 +87,7 @@ app.post('/login', async (req, res) => {
     if (!user.telegramVerified) {
         return res.status(403).json({
             success: false,
-            detail: 'Debes verificar tu cuenta con el bot de Telegram',
+            detail: 'Debes verificar tu cuenta con el bot de Telegram enviando /start ' + username,
             telegramVerified: false
         });
     }
@@ -217,17 +215,33 @@ app.get('/stats', (req, res) => {
 });
 
 // Telegram Bot - Verificación
-bot.onText(/\/verify (.+)/, (msg, match) => {
+bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const code = match[1].trim();
-    const username = verificationCodes[code];
-    if (!username) {
-        bot.sendMessage(chatId, 'Código de verificación inválido.');
+    const username = match[1].trim();
+    
+    // Verificar si el chatId ya está asociado a otra cuenta
+    for (const user in users) {
+        if (users[user].telegramChatId === chatId) {
+            bot.sendMessage(chatId, `Este ID de Telegram ya está asociado a la cuenta ${user}. No puedes verificar otra cuenta.`);
+            return;
+        }
+    }
+    
+    // Verificar si el username existe y está pendiente de verificación
+    if (!users[username]) {
+        bot.sendMessage(chatId, 'Usuario no encontrado. Por favor, registra la cuenta primero.');
         return;
     }
+    if (users[username].telegramVerified) {
+        bot.sendMessage(chatId, `La cuenta ${username} ya está verificada.`);
+        return;
+    }
+    
+    // Registrar el chatId y marcar como verificado
     users[username].telegramVerified = true;
-    delete verificationCodes[code];
-    bot.sendMessage(chatId, `¡Cuenta verificada para ${username}! Ahora puedes iniciar sesión.`);
+    users[username].telegramChatId = chatId;
+    pendingVerifications[chatId] = username;
+    bot.sendMessage(chatId, `¡Cuenta ${username} verificada exitosamente! Ahora puedes iniciar sesión.`);
 });
 
 // Socket.IO
