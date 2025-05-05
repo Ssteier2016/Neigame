@@ -1677,8 +1677,255 @@
             }
 
             // Funciones de recarga
-            function handleReload() {
-                fetch(`/user/${username}`)
+function handleReload() {
+    fetch(`/user/${username}`)
+        .then(response => response.json())
+        .then(user => {
+            if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                showMessage('Debes aceptar las Políticas y Condiciones para recargar Neig.');
+                return;
+            }
+            reloadForm.classList.add('active');
+            gameContainer.classList.remove('active');
+            reloadAmount.value = '';
+            showReloadMessage('');
+        })
+        .catch(error => {
+            console.error('Error al verificar usuario:', error);
+            showMessage('Error al conectar con el servidor.');
+        });
+}
+
+async function handleReloadSubmit() {
+    const amount = parseInt(reloadAmount.value);
+    if (!amount || amount <= 0) {
+        showReloadMessage('Por favor, ingresa una cantidad válida.');
+        return;
+    }
+    confirmAmount.textContent = amount;
+    reloadForm.classList.remove('active');
+    confirmReloadModal.classList.add('active');
+    showConfirmReloadMessage('');
+}
+
+async function handleConfirmReloadSubmit() {
+    const amount = parseInt(confirmAmount.textContent);
+    try {
+        const response = await fetch('/create-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, amount })
+        });
+        const result = await response.json();
+        if (result.success && result.paymentUrl) {
+            // Redirigir al enlace de pago de Mercado Pago
+            window.location.href = result.paymentUrl;
+        } else {
+            showConfirmReloadMessage(result.detail || 'Error al crear el enlace de pago.');
+            confirmReloadModal.classList.remove('active');
+            gameContainer.classList.add('active');
+        }
+    } catch (error) {
+        console.error('Error al crear pago:', error);
+        showConfirmReloadMessage('Error al conectar con el servidor.');
+        confirmReloadModal.classList.remove('active');
+        gameContainer.classList.add('active');
+    }
+}
+
+function handleConfirmReloadCancel() {
+    confirmReloadModal.classList.remove('active');
+    gameContainer.classList.add('active');
+    showConfirmReloadMessage('');
+}
+
+function handleReloadCancel() {
+    reloadForm.classList.remove('active');
+    gameContainer.classList.add('active');
+    showReloadMessage('');
+}
+
+// Actualizar información del jugador
+function updatePlayerInfo() {
+    usernameDisplay.textContent = `Usuario: ${username}`;
+    coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+}
+
+// Actualizar monedas del usuario
+function updateUserCoins(username, coins) {
+    socket.emit('update coins', { username, coins });
+}
+
+// Manejar mensaje de recarga exitosa desde URL
+function handlePaymentSuccess() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const amount = urlParams.get('amount');
+    if (amount) {
+        const parsedAmount = parseInt(amount);
+        if (!isNaN(parsedAmount)) {
+            playerCoins += parsedAmount;
+            updateUserCoins(username, playerCoins);
+            updatePlayerInfo();
+            showMessage(`Usted compró ${parsedAmount} Neig`);
+            // Limpiar parámetros de la URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+}
+
+// Inicializar juego
+function initializeGame() {
+    socket.emit('join', username);
+    initializeChat();
+    updatePoliciesStatus();
+    fetch(`/user/${username}`)
+        .then(response => response.json())
+        .then(user => {
+            playerCoins = user.coins || 1000;
+            updatePlayerInfo();
+            // Verificar si hay un pago exitoso
+            handlePaymentSuccess();
+        })
+        .catch(error => {
+            console.error('Error al cargar datos del usuario:', error);
+            showMessage('Error al cargar datos del usuario.');
+        });
+}
+
+// Event Listeners
+authSubmit.addEventListener('click', handleAuthSubmit);
+authToggle.addEventListener('click', toggleAuthMode);
+policiesAccept.addEventListener('click', handlePoliciesAccept);
+policiesReject.addEventListener('click', handlePoliciesReject);
+policiesLink.addEventListener('click', showPoliciesWindow);
+statsButton.addEventListener('click', showStatsWindow);
+settingsButton.addEventListener('click', () => {
+    settingsContainer.classList.add('active');
+    gameContainer.classList.remove('active');
+    loadUserSettings();
+});
+settingsSave.addEventListener('click', handleSettingsSave);
+settingsBack.addEventListener('click', handleSettingsBack);
+withdrawButton.addEventListener('click', handleWithdraw);
+withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
+withdrawCancel.addEventListener('click', handleWithdrawCancel);
+reloadButton.addEventListener('click', handleReload);
+reloadSubmit.addEventListener('click', handleReloadSubmit);
+reloadCancel.addEventListener('click', handleReloadCancel);
+confirmReloadSubmit.addEventListener('click', handleConfirmReloadSubmit);
+confirmReloadCancel.addEventListener('click', handleConfirmReloadCancel);
+competeButton.addEventListener('click', () => {
+    fetch(`/user/${username}`)
+        .then(response => response.json())
+        .then(user => {
+            if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
+                showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
+                return;
+            }
+            if (playerCoins < 100) {
+                showMessage('No tienes suficientes Neig. Recarga para continuar.');
+                return;
+            }
+            if (!hasParticipated) {
+                fetch('/compete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, sessionId })
+                })
                     .then(response => response.json())
-                    .then(user => {
-                        if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION
+                    .then(result => {
+                        if (result.success) {
+                            playerCoins -= 100;
+                            updateUserCoins(username, playerCoins);
+                            updatePlayerInfo();
+                            hasParticipated = true;
+                            lastPlayer = username;
+                            competeButton.disabled = true;
+                            competeButton.textContent = 'Esperando Resultado...';
+                            socket.emit('compete', { username });
+                            showMessage('¡Has apostado 100 Neig! Espera el resultado.');
+                        } else {
+                            showMessage(result.detail || 'Error al competir.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al competir:', error);
+                        showMessage('Error al conectar con el servidor.');
+                    });
+            } else {
+                showMessage('Ya has participado en esta ronda. Espera a que termine.');
+            }
+        })
+        .catch(error => {
+            console.error('Error al verificar usuario:', error);
+            showMessage('Error al conectar con el servidor.');
+        });
+});
+
+logoutButton.addEventListener('click', () => {
+    fetch('/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, sessionId })
+    })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                username = null;
+                sessionId = null;
+                playerCoins = 1000;
+                hasParticipated = false;
+                lastPlayer = null;
+                gameContainer.classList.remove('active');
+                authContainer.classList.add('active');
+                showAuthMessage('Sesión cerrada exitosamente.', true);
+                socket.emit('leave', username);
+            } else {
+                showMessage('Error al cerrar sesión.');
+            }
+        })
+        .catch(error => {
+            console.error('Error al cerrar sesión:', error);
+            showMessage('Error al conectar con el servidor.');
+        });
+});
+
+// Inicializar al cargar
+fetch('/check-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: localStorage.getItem('sessionId') })
+})
+    .then(response => response.json())
+    .then(result => {
+        if (result.success && result.username) {
+            username = result.username;
+            sessionId = result.sessionId;
+            authContainer.classList.remove('active');
+            fetch(`/user/${username}`)
+                .then(response => response.json())
+                .then(user => {
+                    if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION && user.telegramVerified) {
+                        gameContainer.classList.add('active');
+                        initializeGame();
+                    } else if (!user.telegramVerified) {
+                        showVerificationInstructions(username);
+                        showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
+                    } else {
+                        policiesContainer.classList.add('active');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al verificar usuario:', error);
+                    authContainer.classList.add('active');
+                });
+        }
+    })
+    .catch(error => {
+        console.error('Error al verificar sesión:', error);
+        authContainer.classList.add('active');
+    });
+});
+</script>
+</body>
+</html>
