@@ -303,7 +303,7 @@
         #policies-status {
             display: flex;
             align-items: center;
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             margin-top: 0.5rem;
         }
         #policies-status input[type="checkbox"] {
@@ -492,7 +492,7 @@
         </div>
         <button id="stats-button">Estadísticas</button>
         <div id="pot-display">Pozo: 0 Neig</div>
-        <div id="last-players">Últimos Jugadores: Ninguno</div>
+        <div id="last-players">Último Jugador: Ninguno</div>
         <div id="timer-display">
             <p>Tiempo Restante: 4:00</p>
             <div id="progress-bar">
@@ -508,9 +508,9 @@
             <button id="settings-button" class="button">Configuración</button>
             <button id="logout-button" class="button">Cerrar Sesión</button>
         </div>
-        <div id="policies-status">
+        <div id="policies-status" class="rejected">
             <input type="checkbox" id="policies-checkbox" disabled>
-            <span id="policies-text"></span>
+            <span id="policies-text">Ud. no aceptó las </span>
             <a id="policies-link" href="javascript:void(0)">Políticas y Condiciones</a>
         </div>
         <div id="chat-container">
@@ -555,12 +555,14 @@
         <p id="reload-message"></p>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar EmailJS. Verifica tu conexión.')"></script>
- <script>
+    <script>
+        // Aquí comienza el JavaScript (Parte 2)
+    <script>
     document.addEventListener('DOMContentLoaded', () => {
         // Inicializar EmailJS
         try {
             if (typeof emailjs !== 'undefined') {
-                emailjs.init("KWVSgPsdHmSAURvGd"); // Public Key
+                emailjs.init("KWVSgPsdHmSAURvGd"); // Reemplaza con tu Public Key de EmailJS
             } else {
                 showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
             }
@@ -593,9 +595,9 @@
         let hasParticipated = false;
         let username = null;
         let sessionId = null;
+        let lastPlayer = null;
         const developerPercentage = 0.05;
         const potPercentage = 0.06;
-        const lastPlayers = [];
 
         // Elementos del DOM
         const authContainer = document.getElementById('auth-container');
@@ -830,7 +832,141 @@
             </body>
             </html>
         `;
-        const statsHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Estadísticas</title></head><body><h1>Estadísticas del Juego</h1><p>No hay estadísticas disponibles en modo local.</p></body></html>`;
+
+        // Estadísticas en HTML
+        const statsHtml = `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Estadísticas - La Moneda del Vecindario</title>
+                <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+                <style>
+                    body {
+                        font-family: 'Press Start 2P', cursive;
+                        background: url('/images/background.jpg') no-repeat center center fixed;
+                        background-size: cover;
+                        background-color: #000;
+                        color: #fff;
+                        margin: 20px;
+                        padding: 20px;
+                        box-sizing: border-box;
+                        image-rendering: pixelated;
+                    }
+                    .container {
+                        background-color: rgba(0, 0, 0, 0.9);
+                        padding: 2rem;
+                        border: 4px solid #ffeb3b;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px #ffeb3b, 0 0 20px #e91e63;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        text-align: left;
+                        font-size: 0.7rem;
+                    }
+                    h1 {
+                        color: #ffeb3b;
+                        text-shadow: 0 0 8px #e91e63;
+                        font-size: 1.2rem;
+                        text-align: center;
+                        margin-bottom: 1rem;
+                    }
+                    h2 {
+                        color: #03a9f4;
+                        font-size: 0.9rem;
+                        margin-top: 1.5rem;
+                        margin-bottom: 0.5rem;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 1rem;
+                    }
+                    th, td {
+                        border: 1px solid #ffeb3b;
+                        padding: 0.5rem;
+                        text-align: left;
+                    }
+                    th {
+                        background-color: #03a9f4;
+                        color: #fff;
+                    }
+                    td {
+                        color: #fff;
+                    }
+                    @media (max-width: 640px) {
+                        body {
+                            padding: 10px;
+                            margin: 10px;
+                        }
+                        .container {
+                            padding: 1rem;
+                            font-size: 0.6rem;
+                        }
+                        h1 {
+                            font-size: 1rem;
+                        }
+                        h2 {
+                            font-size: 0.8rem;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Estadísticas del Juego</h1>
+                    <h2>Clics por Jugador</h2>
+                    <table id="clicks-table">
+                        <tr><th>Usuario</th><th>Clics</th></tr>
+                    </table>
+                    <h2>Últimos Ganadores</h2>
+                    <table id="winners-table">
+                        <tr><th>Usuario</th><th>Fecha</th><th>Monto</th></tr>
+                    </table>
+                    <h2>Pérdidas por Jugador</h2>
+                    <table id="losses-table">
+                        <tr><th>Usuario</th><th>Pérdidas (Neig)</th></tr>
+                    </table>
+                </div>
+                <script>
+                    fetch('https://neigame.onrender.com/stats')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Clics
+                                const clicksTable = document.getElementById('clicks-table');
+                                for (const [user, clicks] of Object.entries(data.clicks)) {
+                                    const row = clicksTable.insertRow();
+                                    row.insertCell().textContent = user;
+                                    row.insertCell().textContent = clicks;
+                                }
+                                // Ganadores
+                                const winnersTable = document.getElementById('winners-table');
+                                data.winners.forEach(winner => {
+                                    const row = winnersTable.insertRow();
+                                    row.insertCell().textContent = winner.username;
+                                    row.insertCell().textContent = winner.timestamp;
+                                    row.insertCell().textContent = winner.amount + ' Neig';
+                                });
+                                // Pérdidas
+                                const lossesTable = document.getElementById('losses-table');
+                                for (const [user, losses] of Object.entries(data.losses)) {
+                                    const row = lossesTable.insertRow();
+                                    row.insertCell().textContent = user;
+                                    row.insertCell().textContent = losses + ' Neig';
+                                }
+                            } else {
+                                document.body.innerHTML = '<h1>Error al cargar estadísticas</h1>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.body.innerHTML = '<h1>Error al conectar con el servidor</h1>';
+                        });
+                </script>
+            </body>
+            </html>
+        );
 
         // Configuración del chat
         const socket = io('https://neigame.onrender.com', {
@@ -912,29 +1048,26 @@
 
         function updateLastPlayers() {
             try {
-                console.log('Actualizando lista de últimos jugadores:', lastPlayers);
-                lastPlayersDisplay.innerHTML = '<strong>Últimos Jugadores:</strong>';
-                if (lastPlayers.length === 0) {
+                console.log('Actualizando último jugador:', lastPlayer);
+                lastPlayersDisplay.innerHTML = '<strong>Último Jugador:</strong>';
+                if (lastPlayer) {
+                    const p = document.createElement('p');
+                    p.textContent = lastPlayer;
+                    lastPlayersDisplay.appendChild(p);
+                } else {
                     const p = document.createElement('p');
                     p.textContent = 'Ninguno';
                     lastPlayersDisplay.appendChild(p);
-                } else {
-                    const ul = document.createElement('ul');
-                    lastPlayers.forEach(player => {
-                        const li = document.createElement('li');
-                        li.textContent = `${player.username} - ${player.timestamp}`;
-                        ul.appendChild(li);
-                    });
-                    lastPlayersDisplay.appendChild(ul);
                 }
             } catch (error) {
-                console.error('Error al actualizar últimos jugadores:', error);
-                showErrorMessage('message-box', 'Error al actualizar últimos jugadores.');
+                console.error('Error al actualizar último jugador:', error);
+                showErrorMessage('message-box', 'Error al actualizar último jugador.');
             }
         }
 
-        function updateTimerDisplay(seconds, pot, winner) {
+        function updateTimerDisplay(seconds, pot, lastPlayerServer) {
             try {
+                lastPlayer = lastPlayerServer;
                 potDisplay.textContent = `Pozo: ${pot} Neig`;
                 const minutes = Math.floor(seconds / 60);
                 const secs = Math.floor(seconds % 60);
@@ -942,24 +1075,24 @@
                 timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}`;
                 progressBarFill.style.width = `${percentage}%`;
                 timerPercentageDisplay.textContent = `${Math.round(percentage)}%`;
-                if (seconds <= 0 && winner) {
+                if (seconds <= 0 && lastPlayer) {
                     const playerWinAmount = Math.round(pot * 0.89);
                     addMessage({
                         user: 'Sistema',
-                        content: `¡${winner} ganó ${playerWinAmount} Neig!`,
+                        content: `¡${lastPlayer} ganó ${playerWinAmount} Neig!`,
                         type: 'text'
                     });
-                    if (winner === username) {
+                    if (lastPlayer === username) {
                         playerCoins += playerWinAmount;
                         updateUserCoins(username, playerCoins);
                         updatePlayerInfo();
                     }
-                    lastPlayers.length = 0;
-                    updateLastPlayers();
+                    lastPlayer = null;
                     hasParticipated = false;
                     competeButton.disabled = false;
                     competeButton.textContent = 'Jugar (100 Neig)';
                 }
+                updateLastPlayers();
             } catch (error) {
                 console.error('Error al actualizar temporizador:', error);
                 showErrorMessage('message-box', 'Error al actualizar temporizador.');
@@ -1003,9 +1136,9 @@
             addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
         });
 
-        socket.on('timer update', ({ seconds, pot, winner }) => {
-            console.log(`Actualización del temporizador: ${seconds}, Pozo: ${pot}, Ganador: ${winner}`);
-            updateTimerDisplay(seconds, pot, winner);
+        socket.on('timer update', ({ seconds, pot, lastPlayer }) => {
+            console.log(`Actualización del temporizador: ${seconds}, Pozo: ${pot}, Último jugador: ${lastPlayer}`);
+            updateTimerDisplay(seconds, pot, lastPlayer);
         });
 
         messageForm.addEventListener('submit', (e) => {
@@ -1130,7 +1263,6 @@
                     body: JSON.stringify({ username: usernameInput, password: passwordInput })
                 });
 
-                // Verificar si la respuesta es JSON
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
@@ -1578,15 +1710,6 @@
                             playerCoins -= 100;
                             updateUserCoins(username, playerCoins);
                             const displayName = user.settings && user.settings.displayName ? user.settings.displayName : username;
-                            lastPlayers.unshift({
-                                username: displayName,
-                                timestamp: new Date().toLocaleTimeString('es-ES', { hour12: false })
-                            });
-                            if (lastPlayers.length > 5) {
-                                lastPlayers.pop();
-                            }
-                            updateLastPlayers();
-                            updatePlayerInfo();
                             socket.emit('compete', { username: displayName });
                             hasParticipated = true;
                             competeButton.disabled = true;
@@ -1606,52 +1729,100 @@
         }
 
         function handleLogout() {
-            socket.emit('leave', username);
-            authContainer.classList.add('active');
-            gameContainer.classList.remove('active');
-            showAuthMessage('Sesión cerrada.');
-            username = null;
-            playerCoins = 1000;
-            isLoginMode = true;
-            authTitle.textContent = 'Iniciar Sesión';
-            authSubmit.textContent = 'Iniciar Sesión';
-            authToggle.textContent = '¿No tienes cuenta? Regístrate';
-            authUsername.value = '';
-            authPassword.value = '';
-            authConfirmPassword.value = '';
-        }
+    socket.emit('leave', username); // Notifica al servidor que el usuario se desconecta
+    authContainer.classList.add('active'); // Muestra la pantalla de autenticación
+    gameContainer.classList.remove('active'); // Oculta la pantalla del juego
+    settingsContainer.classList.remove('active'); // Oculta la pantalla de configuración
+    policiesContainer.classList.remove('active'); // Oculta la pantalla de políticas
+    withdrawForm.classList.remove('active'); // Oculta el formulario de retiro
+    reloadForm.classList.remove('active'); // Oculta el formulario de recarga
+    username = null; // Limpia el nombre de usuario
+    sessionId = null; // Limpia el ID de sesión
+    playerCoins = 1000; // Reinicia las monedas (o puedes obtenerlas del servidor)
+    hasParticipated = false; // Reinicia el estado de participación
+    competeButton.disabled = false; // Habilita el botón de competir
+    competeButton.textContent = 'Jugar (100 Neig)'; // Restaura el texto del botón
+    authUsername.value = ''; // Limpia los campos de autenticación
+    authPassword.value = '';
+    authConfirmPassword.value = '';
+    showAuthMessage('Has cerrado sesión exitosamente.', true);
+    socket.disconnect(); // Desconecta el socket
+}
 
-        function initializeGame() {
-            socket.emit('join', username);
-            updatePlayerInfo();
-            showMessage(`¡Bienvenido, ${username}!`);
-            initializeChat();
-            updateLastPlayers();
-        }
-
-        // Listeners
-        authSubmit.addEventListener('click', handleAuthSubmit);
-        authToggle.addEventListener('click', toggleAuthMode);
-        policiesAccept.addEventListener('click', handlePoliciesAccept);
-        policiesReject.addEventListener('click', handlePoliciesReject);
-        statsButton.addEventListener('click', showStatsWindow);
-        competeButton.addEventListener('click', handleCompete);
-        reloadButton.addEventListener('click', handleReload);
-        withdrawButton.addEventListener('click', handleWithdraw);
-        settingsButton.addEventListener('click', () => {
-            settingsContainer.classList.add('active');
-            gameContainer.classList.remove('active');
-            loadUserSettings();
+// Inicializar el juego
+function initializeGame() {
+    updatePlayerInfo();
+    updateLastPlayers();
+    socket.emit('join', username); // Unirse al chat
+    initializeChat();
+    fetch('/game-state')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateTimerDisplay(data.seconds, data.pot, data.lastPlayer);
+            }
+        })
+        .catch(error => {
+            console.error('Error al inicializar estado del juego:', error);
+            showMessage('Error al cargar el estado del juego.');
         });
-        logoutButton.addEventListener('click', handleLogout);
-        settingsSave.addEventListener('click', handleSettingsSave);
-        settingsBack.addEventListener('click', handleSettingsBack);
-        withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
-        withdrawCancel.addEventListener('click', handleWithdrawCancel);
-        reloadSubmit.addEventListener('click', handleReloadSubmit);
-        reloadCancel.addEventListener('click', handleReloadCancel);
-        policiesLink.addEventListener('click', showPoliciesWindow);
+}
+
+// Event Listeners
+authSubmit.addEventListener('click', handleAuthSubmit);
+authToggle.addEventListener('click', toggleAuthMode);
+policiesAccept.addEventListener('click', handlePoliciesAccept);
+policiesReject.addEventListener('click', handlePoliciesReject);
+policiesLink.addEventListener('click', showPoliciesWindow);
+statsButton.addEventListener('click', showStatsWindow);
+competeButton.addEventListener('click', handleCompete);
+reloadButton.addEventListener('click', handleReload);
+withdrawButton.addEventListener('click', handleWithdraw);
+settingsButton.addEventListener('click', () => {
+    settingsContainer.classList.add('active');
+    gameContainer.classList.remove('active');
+    loadUserSettings();
+});
+logoutButton.addEventListener('click', handleLogout);
+settingsSave.addEventListener('click', handleSettingsSave);
+settingsBack.addEventListener('click', handleSettingsBack);
+withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
+withdrawCancel.addEventListener('click', handleWithdrawCancel);
+reloadSubmit.addEventListener('click', handleReloadSubmit);
+reloadCancel.addEventListener('click', handleReloadCancel);
+
+// Verificar sesión existente al cargar la página
+fetch('/check-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+})
+    .then(response => response.json())
+    .then(result => {
+        if (result.success && result.username) {
+            username = result.username;
+            sessionId = result.sessionId;
+            authContainer.classList.remove('active');
+            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                gameContainer.classList.add('active');
+                initializeGame();
+            } else if (!result.telegramVerified) {
+                showAuthMessage('Debes verificar tu cuenta con el bot de Telegram.');
+                setTimeout(() => {
+                    authContainer.classList.add('active');
+                }, 3000);
+            } else {
+                policiesContainer.classList.add('active');
+            }
+        } else {
+            authContainer.classList.add('active');
+        }
+    })
+    .catch(error => {
+        console.error('Error al verificar sesión:', error);
+        authContainer.classList.add('active');
     });
+});
 </script>
 </body>
-</html>
+            </html>
