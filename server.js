@@ -5,8 +5,9 @@ const { v4: uuidv4 } = require('uuid');
 const socketIo = require('socket.io');
 const http = require('http');
 const path = require('path');
-const mercadopago = require('mercadopago'); // Agregar Mercado Pago
-    
+const mercadopago = require('mercadopago');
+const { MercadoPagoConfig, Preference, Payment } = mercadopago; // Importar clases necesarias
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -22,17 +23,23 @@ const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8';
 const ADMIN_CHAT_ID = '1624130940';
 
 // Configurar Mercado Pago
-console.log('Mercado Pago module:', mercadopago); // Depurar qué exporta el módulo
+console.log('Mercado Pago module:', mercadopago);
 
+let mpConfig; // Variable para almacenar la configuración
 try {
-    mercadopago.configure({
-    access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222' // Reemplaza con tu access token de Mercado Pago
-});
-console.log('Mercado Pago configurado correctamente');
+    mpConfig = new MercadoPagoConfig({
+        accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222'
+    });
+    console.log('Mercado Pago configurado correctamente');
 } catch (error) {
     console.error('Error al configurar Mercado Pago:', error);
     throw error;
 }
+
+// Crear clientes para preferencias y pagos
+const preferenceClient = new Preference(mpConfig);
+const paymentClient = new Payment(mpConfig);
+
 const bot = new TelegramBot(botToken, {
     polling: {
         interval: 1000,
@@ -53,8 +60,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Base de datos en memoria
 const users = {};
-const pendingVerifications = {}; // { username: { chatId: null } }
-const telegramChatIds = {}; // { chatId: username }
+const pendingVerifications = {};
+const telegramChatIds = {};
 const stats = {
     clicks: {},
     winners: [],
@@ -166,6 +173,7 @@ app.post('/update-settings', (req, res) => {
     users[username].settings = settings;
     res.json({ success: true });
 });
+
 // Ruta para iniciar la recarga con Mercado Pago
 app.post('/reload', async (req, res) => {
     const { username, amount } = req.body;
@@ -180,12 +188,11 @@ app.post('/reload', async (req, res) => {
     }
 
     try {
-        // Crear preferencia de pago en Mercado Pago
         const preference = {
             items: [
                 {
                     title: 'Recarga de Neig',
-                    unit_price: parseFloat(amount), // Monto en pesos argentinos (1 Neig = 1 ARS)
+                    unit_price: parseFloat(amount),
                     quantity: 1,
                     currency_id: 'ARS'
                 }
@@ -196,14 +203,14 @@ app.post('/reload', async (req, res) => {
                 pending: 'https://neigame.onrender.com/reload/pending'
             },
             auto_return: 'approved',
-            external_reference: `${username}:${amount}`, // Guardar username y amount para identificar el pago
-            notification_url: 'https://neigame.onrender.com/webhook/mercadopago' // Webhook para notificaciones
+            external_reference: `${username}:${amount}`,
+            notification_url: 'https://neigame.onrender.com/webhook/mercadopago'
         };
 
-        const response = await mercadopago.preferences.create(preference);
+        const response = await preferenceClient.create({ body: preference });
         res.json({
             success: true,
-            payment_url: response.body.init_point // Enlace para redirigir al usuario
+            payment_url: response.init_point
         });
     } catch (error) {
         console.error('Error al crear preferencia de Mercado Pago:', error);
@@ -218,10 +225,9 @@ app.post('/webhook/mercadopago', async (req, res) => {
 
     if (payment.type === 'payment' && payment.data && payment.data.id) {
         try {
-            // Consultar el estado del pago
-            const paymentInfo = await mercadopago.payment.get(payment.data.id);
-            if (paymentInfo.body.status === 'approved') {
-                const [username, amount] = paymentInfo.body.external_reference.split(':');
+            const paymentInfo = await paymentClient.get({ id: payment.data.id });
+            if (paymentInfo.status === 'approved') {
+                const [username, amount] = paymentInfo.external_reference.split(':');
                 if (users[username]) {
                     users[username].coins += parseInt(amount);
                     io.emit('coins update', { username, coins: users[username].coins });
@@ -239,7 +245,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
             console.error('Error al procesar webhook:', error);
         }
     }
-    res.sendStatus(200); // Responder siempre con 200 para evitar reintentos
+    res.sendStatus(200);
 });
 
 // Rutas de redirección tras el pago
@@ -267,11 +273,11 @@ app.post('/withdraw', async (req, res) => {
         return res.status(400).json({ success: false, detail: 'Saldo insuficiente' });
     }
     users[username].coins -= amount;
-    
+
     try {
         const timestamp = new Date().toLocaleString('es-ES');
         const settings = users[username].settings || {};
-        const withdrawalMethod = currency === 'Pesos' 
+        const withdrawalMethod = currency === 'Pesos'
             ? (settings.cvu || 'No proporcionado')
             : (settings.metamask || 'No proporcionado');
         const methodLabel = currency === 'Pesos' ? 'CBU/CVU/Alias' : 'Dirección MetaMask';
@@ -285,18 +291,6 @@ app.post('/withdraw', async (req, res) => {
         console.error('Error al enviar notificación de retiro:', error);
     }
 
-    res.json({ success: true });
-});
-
-app.post('/reload', (req, res) => {
-    const { username, amount } = req.body;
-    if (!users[username]) {
-        return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
-    }
-    if (amount <= 0) {
-        return res.status(400).json({ success: false, detail: 'Cantidad inválida' });
-    }
-    users[username].coins += amount;
     res.json({ success: true });
 });
 
@@ -320,17 +314,17 @@ app.get('/stats', (req, res) => {
 bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const username = match[1].trim();
-    
+
     if (telegramChatIds[chatId]) {
         bot.sendMessage(chatId, `Este ID de Telegram ya está asociado a la cuenta ${telegramChatIds[chatId]}. No puedes verificar otra cuenta.`);
         return;
     }
-    
+
     if (!users[username] || !pendingVerifications[username]) {
         bot.sendMessage(chatId, 'Usuario no encontrado o no pendiente de verificación. Por favor, registra la cuenta primero.');
         return;
     }
-    
+
     users[username].telegramVerified = true;
     users[username].telegramChatId = chatId;
     telegramChatIds[chatId] = username;
