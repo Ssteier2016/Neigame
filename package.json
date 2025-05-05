@@ -16,7 +16,7 @@
     "uuid": "^10.0.0",
     "node-telegram-bot-api": "^0.66.0",
     "dotenv": "^16.4.5",
-    "mercadopago": "2.0.9"
+    "mercadopago": "^2.0.9"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
