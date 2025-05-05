@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>La Moneda del Vecindario</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link href="/output.css" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="/output.css" rel="stylesheet" onerror="console.error('Error al cargar /output.css. Verifica que exista en /public.')">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" onerror="showErrorMessage('auth-message', 'Error al cargar Socket.IO. Verifica tu conexión.')"></script>
     <!-- PWA Support -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/manifest.json" onerror="console.error('Error al cargar /manifest.json. Verifica que exista en /public.')">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="/icon-192x192.png">
-    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icon-192x192.png" onerror="console.error('Error al cargar /icon-192x192.png. Verifica que exista en /public.')">
+    <link rel="icon" href="/favicon.ico" onerror="console.error('Error al cargar /favicon.ico. Verifica que exista en /public.')">
     <script>
         // Definir showErrorMessage en el ámbito global
         function showErrorMessage(elementId, message) {
+            console.warn(`[${new Date().toISOString()}] Elemento con ID ${elementId}: ${message}`);
             const element = document.getElementById(elementId);
             if (element) {
                 element.textContent = message;
             } else {
-                console.warn(`Elemento con ID ${elementId} no encontrado: ${message}`);
                 const fallbackElement = document.getElementById('message-box');
                 if (fallbackElement) {
                     fallbackElement.textContent = message;
@@ -32,9 +32,8 @@
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background: url('/images/background.jpg') no-repeat center center fixed;
+            background: url('/images/background.jpg') no-repeat center center fixed, #000;
             background-size: cover;
-            background-color: #000;
             color: #fff;
             display: flex;
             flex-direction: column;
@@ -104,7 +103,7 @@
         #auth-form button:hover, #settings-form button:hover, #policies-form button:hover, #withdraw-form button:hover, #reload-form button:hover, #stats-button:hover, #record-button:hover, #send-button:hover, #confirm-reload-modal button:hover {
             background-color: #c2185b;
         }
-        #policies-accept:disabled {
+        #policies-accept:disabled, #compete-button:disabled, #reload-button:disabled, .button:disabled {
             background-color: #616161;
             cursor: not-allowed;
             opacity: 0.6;
@@ -444,9 +443,9 @@
     <div id="auth-container" class="active">
         <div id="auth-form">
             <h2 id="auth-title">Iniciar Sesión</h2>
-            <input type="text" id="auth-username" placeholder="Usuario" required>
-            <input type="password" id="auth-password" placeholder="Contraseña" required>
-            <input type="password" id="auth-confirm-password" placeholder="Confirmar Contraseña" style="display: none;" required>
+            <input type="text" id="auth-username" placeholder="Usuario" required pattern="[A-Za-z0-9]{3,20}" title="El usuario debe tener entre 3 y 20 caracteres alfanuméricos.">
+            <input type="password" id="auth-password" placeholder="Contraseña" required minlength="6" title="La contraseña debe tener al menos 6 caracteres.">
+            <input type="password" id="auth-confirm-password" placeholder="Confirmar Contraseña" style="display: none;" required minlength="6">
             <button id="auth-submit">Iniciar Sesión</button>
             <p id="auth-toggle">¿No tienes cuenta? Regístrate</p>
             <p id="auth-message"></p>
@@ -577,8 +576,9 @@
             try {
                 if (typeof emailjs !== 'undefined') {
                     emailjs.init("KWVSgPsdHmSAURvGd");
+                    console.log('EmailJS inicializado correctamente');
                 } else {
-                    showErrorMessage('auth-message', 'EmailJS no está disponible. Verifica tu conexión.');
+                    throw new Error('EmailJS no está disponible');
                 }
             } catch (error) {
                 console.error('Error al inicializar EmailJS:', error);
@@ -590,17 +590,19 @@
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
+                console.log('Evento beforeinstallprompt capturado');
             });
             window.addEventListener('appinstalled', () => {
                 showErrorMessage('message-box', '¡La Moneda del Vecindario ha sido instalada!');
                 deferredPrompt = null;
+                console.log('Aplicación instalada como PWA');
             });
 
             // Registrar Service Worker
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(error => {
-                    console.error('Error al registrar Service Worker:', error);
-                });
+                navigator.serviceWorker.register('/sw.js')
+                    .then(() => console.log('Service Worker registrado'))
+                    .catch(error => console.error('Error al registrar Service Worker:', error));
             }
 
             // Configuración inicial
@@ -980,44 +982,44 @@
                     const winnersTable = document.getElementById('winners-table');
                     data.winners.forEach(winner => {
                         const row = winnersTable.insertRow();
-                        row.insertCell().textContent = winner.username;
-                        row.insertCell().textContent = winner.timestamp;
-                        row.insertCell().textContent = winner.amount + ' Neig';
+                        row.insertCell().textContent = winner.username || 'Desconocido';
+                        row.insertCell().textContent = winner.timestamp || 'N/A';
+                        row.insertCell().textContent = (winner.amount || 0) + ' Neig';
                     });
                     // Más Ganadores
                     const topWinnersTable = document.getElementById('top-winners-table');
-                    for (const [user, wins] of Object.entries(data.topWinners)) {
+                    for (const [user, wins] of Object.entries(data.topWinners || {})) {
                         const row = topWinnersTable.insertRow();
-                        row.insertCell().textContent = user;
-                        row.insertCell().textContent = wins;
+                        row.insertCell().textContent = user || 'Desconocido';
+                        row.insertCell().textContent = wins || 0;
                     }
                     // Más Clics
                     const clicksTable = document.getElementById('clicks-table');
-                    for (const [user, clicks] of Object.entries(data.clicks)) {
+                    for (const [user, clicks] of Object.entries(data.clicks || {})) {
                         const row = clicksTable.insertRow();
-                        row.insertCell().textContent = user;
-                        row.insertCell().textContent = clicks;
+                        row.insertCell().textContent = user || 'Desconocido';
+                        row.insertCell().textContent = clicks || 0;
                     }
                     // Total Apostado
                     const betsTable = document.getElementById('bets-table');
-                    for (const [user, total] of Object.entries(data.totalBets)) {
+                    for (const [user, total] of Object.entries(data.totalBets || {})) {
                         const row = betsTable.insertRow();
-                        row.insertCell().textContent = user;
-                        row.insertCell().textContent = total + ' Neig';
+                        row.insertCell().textContent = user || 'Desconocido';
+                        row.insertCell().textContent = (total || 0) + ' Neig';
                     }
                     // Pérdidas
                     const lossesTable = document.getElementById('losses-table');
-                    for (const [user, losses] of Object.entries(data.losses)) {
+                    for (const [user, losses] of Object.entries(data.losses || {})) {
                         const row = lossesTable.insertRow();
-                        row.insertCell().textContent = user;
-                        row.insertCell().textContent = losses + ' Neig';
+                        row.insertCell().textContent = user || 'Desconocido';
+                        row.insertCell().textContent = (losses || 0) + ' Neig';
                     }
                 } else {
                     document.body.innerHTML = '<div class="container"><h1>Error al cargar estadísticas</h1></div>';
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error al cargar estadísticas:', error);
                 document.body.innerHTML = '<div class="container"><h1>Error al conectar con el servidor</h1></div>';
             });
     </script>
@@ -1036,23 +1038,34 @@
             policiesContent.addEventListener('scroll', () => {
                 const isAtBottom = policiesContent.scrollHeight - policiesContent.scrollTop <= policiesContent.clientHeight + 1;
                 policiesAccept.disabled = !isAtBottom;
+                console.log(`Políticas scroll: isAtBottom=${isAtBottom}`);
             });
 
             // Mostrar instrucciones de verificación
             function showVerificationInstructions(username) {
+                if (!username) {
+                    console.error('No se proporcionó username para verificación');
+                    return;
+                }
                 verificationCommand.textContent = `/start ${username}`;
-                verificationLink.href = `https://t.me/Neigbot?text=/start%20${username}`;
+                verificationLink.href = `https://t.me/Neigbot?text=/start%20${encodeURIComponent(username)}`;
                 verificationInstructions.classList.add('active');
                 setTimeout(() => {
                     verificationInstructions.classList.remove('active');
                     verificationCommand.textContent = '';
                     verificationLink.href = '#';
                 }, 15000);
+                console.log(`Mostrando instrucciones de verificación para ${username}`);
             }
 
             function showChatMessage(message) {
                 chatMessage.textContent = message;
                 setTimeout(() => chatMessage.textContent = '', 3000);
+                console.log(`Mensaje de chat mostrado: ${message}`);
+            }
+
+            function sanitizeContent(content) {
+                return content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
 
             function addMessage({ user, content, type = 'text' }) {
@@ -1061,7 +1074,7 @@
                     const div = document.createElement('div');
                     div.className = `message ${type}`;
                     if (type === 'text') {
-                        div.textContent = `${user}: ${content}`;
+                        div.textContent = `${user}: ${sanitizeContent(content)}`;
                     } else if (type === 'audio') {
                         const audio = document.createElement('audio');
                         audio.controls = true;
@@ -1089,7 +1102,7 @@
                         const ul = document.createElement('ul');
                         users.forEach(user => {
                             const li = document.createElement('li');
-                            li.textContent = user;
+                            li.textContent = sanitizeContent(user);
                             ul.appendChild(li);
                         });
                         usersList.appendChild(ul);
@@ -1106,7 +1119,7 @@
                     lastPlayersDisplay.innerHTML = '<strong>Último Jugador:</strong>';
                     if (lastPlayer) {
                         const p = document.createElement('p');
-                        p.textContent = lastPlayer;
+                        p.textContent = sanitizeContent(lastPlayer);
                         lastPlayersDisplay.appendChild(p);
                     } else {
                         const p = document.createElement('p');
@@ -1121,8 +1134,8 @@
 
             function updateTimerDisplay(seconds, pot, lastPlayerServer) {
                 try {
-                    lastPlayer = lastPlayerServer;
-                    potDisplay.textContent = `Pozo: ${pot} Neig`;
+                    lastPlayer = lastPlayerServer || null;
+                    potDisplay.textContent = `Pozo: ${pot || 0} Neig`;
                     const minutes = Math.floor(seconds / 60);
                     const secs = Math.floor(seconds % 60);
                     const percentage = Math.max(0, (seconds / 240) * 100);
@@ -1133,7 +1146,7 @@
                         const playerWinAmount = Math.round(pot * 0.89);
                         addMessage({
                             user: 'Sistema',
-                            content: `¡${lastPlayer} ganó ${playerWinAmount} Neig!`,
+                            content: `¡${sanitizeContent(lastPlayer)} ganó ${playerWinAmount} Neig!`,
                             type: 'text'
                         });
                         if (lastPlayer === username) {
@@ -1156,6 +1169,7 @@
             // Inicializar chat con mensaje de sistema
             function initializeChat() {
                 addMessage({ user: 'Sistema', content: 'Chat iniciado. ¡Bienvenido!', type: 'text' });
+                console.log('Chat inicializado');
             }
 
             socket.on('connect', () => {
@@ -1172,22 +1186,22 @@
 
             socket.on('chat message', ({ user, message, type }) => {
                 console.log(`Mensaje recibido: ${user} - ${type}`);
-                addMessage({ user, content: message, type });
+                addMessage({ user: user || 'Desconocido', content: message, type });
             });
 
             socket.on('users update', (users) => {
                 console.log('Lista de usuarios recibida:', users);
-                updateUsersList(users);
+                updateUsersList(users || []);
             });
 
             socket.on('user joined', ({ user }) => {
                 console.log(`Usuario unido: ${user}`);
-                addMessage({ user: 'Sistema', content: `${user} se ha unido al chat`, type: 'text' });
+                addMessage({ user: 'Sistema', content: `${sanitizeContent(user)} se ha unido al chat`, type: 'text' });
             });
 
             socket.on('user left', ({ user }) => {
                 console.log(`Usuario desconectado: ${user}`);
-                addMessage({ user: 'Sistema', content: `${user} ha abandonado el chat`, type: 'text' });
+                addMessage({ user: 'Sistema', content: `${sanitizeContent(user)} ha abandonado el chat`, type: 'text' });
             });
 
             socket.on('timer update', ({ seconds, pot, lastPlayer }) => {
@@ -1197,46 +1211,55 @@
 
             socket.on('coins update', ({ username: updatedUsername, coins, message }) => {
                 if (username === updatedUsername) {
-                    playerCoins = coins;
+                    playerCoins = coins || 0;
                     updatePlayerInfo();
                     if (message) {
-                        showMessage(message);
+                        showErrorMessage('message-box', message);
                     }
+                    console.log(`Monedas actualizadas para ${username}: ${coins}`);
                 }
             });
 
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const message = messageInput.value.trim().toLowerCase();
-                if (message && username) {
-                    if (message === 'descargar' || message === 'cerrar') {
-                        if (deferredPrompt) {
-                            deferredPrompt.prompt();
-                            deferredPrompt.userChoice.then(choiceResult => {
-                                if (choiceResult.outcome === 'accepted') {
-                                    showErrorMessage('message-box', 'Instalando La Moneda del Vecindario...');
-                                } else {
-                                    showErrorMessage('message-box', 'Instalación cancelada.');
-                                }
-                                deferredPrompt = null;
-                            });
-                        } else {
-                            showErrorMessage('message-box', 'La instalación no está disponible en este navegador.');
-                        }
-                        messageInput.value = '';
-                    } else {
-                        console.log(`Enviando mensaje de texto: ${message}`);
-                        socket.emit('chat message', { user: username, message, type: 'text' });
-                        messageInput.value = '';
-                    }
-                } else {
+                if (!username) {
                     showChatMessage('Inicia sesión para enviar mensajes.');
+                    return;
+                }
+                if (!message) {
+                    showChatMessage('El mensaje no puede estar vacío.');
+                    return;
+                }
+                if (message === 'descargar' || message === 'cerrar') {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then(choiceResult => {
+                            if (choiceResult.outcome === 'accepted') {
+                                showErrorMessage('message-box', 'Instalando La Moneda del Vecindario...');
+                            } else {
+                                showErrorMessage('message-box', 'Instalación cancelada.');
+                            }
+                            deferredPrompt = null;
+                        });
+                    } else {
+                        showErrorMessage('message-box', 'La instalación no está disponible en este navegador.');
+                    }
+                    messageInput.value = '';
+                } else {
+                    console.log(`Enviando mensaje de texto: ${message}`);
+                    socket.emit('chat message', { user: username, message, type: 'text' });
+                    messageInput.value = '';
                 }
             });
 
             recordButton.addEventListener('click', async () => {
                 if (!username) {
                     showChatMessage('Inicia sesión para grabar audio.');
+                    return;
+                }
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showChatMessage('Grabación de audio no soportada en este navegador.');
                     return;
                 }
                 if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -1278,6 +1301,7 @@
                 authMessage.textContent = message;
                 authMessage.style.color = isSuccess ? '#4caf50' : '#ffeb3b';
                 setTimeout(() => authMessage.textContent = '', 10000);
+                console.log(`Mensaje de autenticación: ${message}`);
             }
 
             function showMessage(message) {
@@ -1285,26 +1309,37 @@
                 while (messageBox.childNodes.length > 1) {
                     messageBox.removeChild(messageBox.lastChild);
                 }
+                console.log(`Mensaje mostrado: ${message}`);
             }
 
             function showPoliciesMessage(message) {
                 policiesMessage.textContent = message;
+                setTimeout(() => policiesMessage.textContent = '', 5000);
+                console.log(`Mensaje de políticas: ${message}`);
             }
 
             function showSettingsMessage(message) {
                 settingsMessage.textContent = message;
+                setTimeout(() => settingsMessage.textContent = '', 5000);
+                console.log(`Mensaje de configuración: ${message}`);
             }
 
             function showWithdrawMessage(message) {
                 withdrawMessage.textContent = message;
+                setTimeout(() => withdrawMessage.textContent = '', 5000);
+                console.log(`Mensaje de retiro: ${message}`);
             }
 
             function showReloadMessage(message) {
                 reloadMessage.textContent = message;
+                setTimeout(() => reloadMessage.textContent = '', 5000);
+                console.log(`Mensaje de recarga: ${message}`);
             }
 
             function showConfirmReloadMessage(message) {
                 confirmReloadMessage.textContent = message;
+                setTimeout(() => confirmReloadMessage.textContent = '', 5000);
+                console.log(`Mensaje de confirmación de recarga: ${message}`);
             }
 
             // Funciones de autenticación
@@ -1318,6 +1353,16 @@
                     return;
                 }
 
+                if (!/^[A-Za-z0-9]{3,20}$/.test(usernameInput)) {
+                    showAuthMessage('El usuario debe tener entre 3 y 20 caracteres alfanuméricos.');
+                    return;
+                }
+
+                if (passwordInput.length < 6) {
+                    showAuthMessage('La contraseña debe tener al menos 6 caracteres.');
+                    return;
+                }
+
                 if (!isLoginMode && passwordInput !== confirmPasswordInput) {
                     showAuthMessage('Las contraseñas no coinciden.');
                     return;
@@ -1325,6 +1370,7 @@
 
                 const endpoint = isLoginMode ? '/login' : '/register';
                 try {
+                    console.log(`Enviando solicitud a ${endpoint} para ${usernameInput}`);
                     const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1335,22 +1381,25 @@
                     if (!contentType || !contentType.includes('application/json')) {
                         const text = await response.text();
                         console.error('Respuesta no es JSON:', text);
-                        showAuthMessage(`Error del servidor: Respuesta no válida (recibido HTML o texto)`);
+                        showAuthMessage('Error del servidor: Respuesta no válida');
                         return;
                     }
 
                     const result = await response.json();
-                    if (result.success || result.message) {
-                        username = usernameInput;
+                    console.log('Respuesta de autenticación:', result);
+                    if (result.success) {
+                        username = result.username || usernameInput;
                         if (isLoginMode) {
                             sessionId = result.sessionId;
+                            localStorage.setItem('username', username);
+                            localStorage.setItem('sessionId', sessionId);
                             authContainer.classList.remove('active');
                             if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
                                 gameContainer.classList.add('active');
                                 initializeGame();
                             } else if (!result.telegramVerified) {
-                                showVerificationInstructions(usernameInput);
-                                showAuthMessage(`Debes verificar tu cuenta enviando /start ${usernameInput} a @NeigBot en Telegram.`);
+                                showVerificationInstructions(username);
+                                showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
                                 setTimeout(() => {
                                     authContainer.classList.add('active');
                                 }, 3000);
@@ -1358,8 +1407,8 @@
                                 policiesContainer.classList.add('active');
                             }
                         } else {
-                            showAuthMessage(`Registro exitoso. Verifica tu cuenta enviando /start ${usernameInput} a @NeigBot en Telegram.`, true);
-                            showVerificationInstructions(usernameInput);
+                            showAuthMessage(`Registro exitoso. Verifica tu cuenta enviando /start ${username} a @NeigBot en Telegram.`, true);
+                            showVerificationInstructions(username);
                             setTimeout(() => {
                                 toggleAuthMode();
                                 authContainer.classList.add('active');
@@ -1385,11 +1434,17 @@
                 authPassword.value = '';
                 authConfirmPassword.value = '';
                 verificationInstructions.classList.remove('active');
+                console.log(`Modo de autenticación cambiado a: ${isLoginMode ? 'Login' : 'Register'}`);
             }
 
             // Funciones de políticas
             async function handlePoliciesAccept() {
+                if (!username) {
+                    showPoliciesMessage('Error: No hay usuario autenticado.');
+                    return;
+                }
                 try {
+                    console.log(`Aceptando políticas para ${username}`);
                     const response = await fetch('/accept-policies', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1410,6 +1465,7 @@
                         gameContainer.classList.add('active');
                         initializeGame();
                         showMessage('Has aceptado las Políticas y Condiciones. ¡Bienvenido al juego!');
+                        updatePoliciesStatus();
                     } else {
                         showPoliciesMessage(result.detail || 'Error al aceptar las políticas.');
                     }
@@ -1420,7 +1476,12 @@
             }
 
             async function handlePoliciesReject() {
+                if (!username) {
+                    showPoliciesMessage('Error: No hay usuario autenticado.');
+                    return;
+                }
                 try {
+                    console.log(`Rechazando políticas para ${username}`);
                     const response = await fetch('/reject-policies', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1441,6 +1502,7 @@
                         gameContainer.classList.add('active');
                         initializeGame();
                         showMessage('Has rechazado las Políticas y Condiciones. Solo puedes usar el chat y observar el juego.');
+                        updatePoliciesStatus();
                     } else {
                         showPoliciesMessage(result.detail || 'Error al rechazar las políticas.');
                     }
@@ -1451,345 +1513,378 @@
             }
 
             function updatePoliciesStatus() {
+                if (!username) {
+                    console.error('No hay username para actualizar estado de políticas');
+                    return;
+                }
                 fetch(`/user/${username}`)
                     .then(response => response.json())
-                    .then(user => {
-                        if (user && user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
+                    .then(data => {
+                        const user = data.user || {};
+                        if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION) {
                             policiesStatus.classList.remove('rejected');
                             policiesStatus.classList.add('accepted');
                             policiesCheckbox.checked = true;
                             policiesText.textContent = 'Ud. aceptó las ';
+                            reloadButton.disabled = false;
+                            withdrawButton.disabled = false;
+                            competeButton.disabled = false;
                         } else {
                             policiesStatus.classList.remove('accepted');
                             policiesStatus.classList.add('rejected');
                             policiesCheckbox.checked = false;
                             policiesText.textContent = 'Ud. no aceptó las ';
+                            reloadButton.disabled = true;
+                            withdrawButton.disabled = true;
+                            competeButton.disabled = true;
                         }
+                        console.log(`Estado de políticas actualizado: ${user.policiesAccepted ? 'Aceptadas' : 'Rechazadas'}`);
                     })
                     .catch(error => {
                         console.error('Error al actualizar estado de políticas:', error);
+                        showErrorMessage('message-box', 'Error al verificar estado de políticas.');
                     });
             }
 
             function showPoliciesWindow() {
-                try {
-                    const policiesWindow = window.open('', '_blank');
-                    if (policiesWindow) {
-                        policiesWindow.document.write(policiesHtml);
-                        policiesWindow.document.close();
-                    } else {
-                        showMessage('No se pudo abrir la ventana de políticas. Desactiva el bloqueador de ventanas emergentes.');
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(policiesHtml);
-                        const link = document.createElement('a');
-                        link.href = dataUrl;
-                        link.download = 'politicas_y_condiciones.html';
-                        link.textContent = 'Descargar Políticas';
-                        link.style.color = '#03a9f4';
-                        link.style.textDecoration = 'underline';
-                        link.style.fontSize = '0.7rem';
-                        messageBox.appendChild(document.createElement('br'));
-                        messageBox.appendChild(link);
-                    }
-                } catch (error) {
-                    console.error('Error al mostrar ventana de políticas:', error);
-                    showMessage('Error al mostrar políticas.');
-                }
-            }
-
-            // Funciones de estadísticas
-            function showStatsWindow() {
-                try {
-                    const statsWindow = window.open('', '_blank');
-                    if (statsWindow) {
-                        statsWindow.document.write(statsHtml);
-                        statsWindow.document.close();
-                    } else {
-                        showMessage('No se pudo abrir la ventana de estadísticas. Desactiva el bloqueador de ventanas emergentes.');
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(statsHtml);
-                        const link = document.createElement('a');
-                        link.href = dataUrl;
-                        link.download = 'estadisticas_juego.html';
-                        link.textContent = 'Descargar Estadísticas';
-                        link.style.color = '#03a9f4';
-                        link.style.textDecoration = 'underline';
-                        link.style.fontSize = '0.7rem';
-                        messageBox.appendChild(document.createElement('br'));
-                        messageBox.appendChild(link);
-                    }
-                } catch (error) {
-                    console.error('Error al mostrar estadísticas:', error);
-                    showMessage('Error al cargar estadísticas.');
-                }
-            }
-
-            // Funciones de configuración
-            function loadUserSettings() {
-                fetch(`/user/${username}`)
-                    .then(response => response.json())
-                    .then(user => {
-                        if (user && user.settings) {
-                            settingsDisplayName.value = user.settings.displayName || '';
-                            settingsCvu.value = user.settings.cvu || '';
-                            settingsMetamask.value = user.settings.metamask || '';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al cargar configuración:', error);
-                        showSettingsMessage('Error al cargar configuración.');
-                    });
-            }
-
-            function handleSettingsSave() {
-                const settings = {
-                    displayName: settingsDisplayName.value.trim(),
-                    cvu: settingsCvu.value.trim(),
-                    metamask: settingsMetamask.value.trim()
-                };
-                fetch('/update-settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, settings })
-                })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            showSettingsMessage('Configuración guardada exitosamente.');
-                            setTimeout(() => {
-                                settingsContainer.classList.remove('active');
-                                gameContainer.classList.add('active');
-                                showSettingsMessage('');
-                            }, 1000);
-                        } else {
-                            showSettingsMessage('Error al guardar configuración.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al guardar configuración:', error);
-                        showSettingsMessage('Error al guardar configuración.');
-                    });
-            }
-
-            function handleSettingsBack() {
-                settingsContainer.classList.remove('active');
-                gameContainer.classList.add('active');
-                showSettingsMessage('');
-            }
-
-            // Funciones de retiro
-            async function sendWithdrawalNotification(amount, currency, realName, displayName, cvu) {
-                try {
-                    if (typeof emailjs === 'undefined') {
-                        throw new Error('EmailJS no está disponible');
-                    }
-                    const templateParams = {
-                        amount: amount,
-                        currency: currency,
-                        real_name: realName,
-                        display_name: displayName || realName,
-                        cvu: cvu || 'No proporcionado',
-                        to_email: 'rod.arena7@gmail.com'
-                    };
-                    await emailjs.send('service_7du0586', '__ejs-test-mail-service__', templateParams);
-                    showWithdrawMessage('Solicitud de retiro enviada.');
-                } catch (error) {
-                    console.error('Error al enviar notificación:', error);
-                    showWithdrawMessage('Error al enviar solicitud de retiro. Verifica la configuración de EmailJS.');
-                }
-            }
-
-            function handleWithdraw() {
-                fetch(`/user/${username}`)
-                    .then(response => response.json())
-                    .then(user => {
-                        if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                            showMessage('Debes aceptar las Políticas y Condiciones para retirar Neig.');
-                            return;
-                        }
-                        withdrawForm.classList.add('active');
-                        gameContainer.classList.remove('active');
-                        withdrawAmount.value = '';
-                        withdrawCurrency.value = 'Neig';
-                        showWithdrawMessage('');
-                    })
-                    .catch(error => {
-                        console.error('Error al verificar usuario:', error);
-                        showMessage('Error al conectar con el servidor.');
-                    });
-            }
-
-            function handleWithdrawSubmit() {
-                const amount = parseInt(withdrawAmount.value);
-                const currency = withdrawCurrency.value;
-                fetch(`/user/${username}`)
-                    .then(response => response.json())
-                    .then(user => {
-                        const settings = user.settings || {};
-                        if (!amount || amount <= 0) {
-                            showWithdrawMessage('Por favor, ingresa una cantidad válida.');
-                            return;
-                        }
-                        if (amount > playerCoins) {
-                            showWithdrawMessage('No tienes suficientes Neig para retirar.');
-                            return;
-                        }
-                        if (!settings.cvu && currency === 'Pesos') {
-                            showWithdrawMessage('Por favor, ingresa un CVU/CBU o Alias en Configuración.');
-                            return;
-                        }
-                        if (!settings.metamask && currency === 'Neig') {
-                            showWithdrawMessage('Por favor, ingresa una dirección MetaMask en Configuración.');
-                            return;
-                        }
-                        fetch('/withdraw', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username, amount, currency })
-                        })
-                            .then(response => response.json())
-                            .then(result => {
-                                if (result.success) {
-                                    playerCoins -= amount;
-                                    updateUserCoins(username, playerCoins);
-                                    updatePlayerInfo();
-                                    sendWithdrawalNotification(amount, currency, username, settings.displayName, settings.cvu);
-                                    withdrawForm.classList.remove('active');
-                                    gameContainer.classList.add('active');
-                                    showMessage(`Solicitud de retiro de ${amount} ${currency} enviada.`);
-                                } else {
-                                    showWithdrawMessage(result.detail || 'Error al procesar retiro.');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error al procesar retiro:', error);
-                                showWithdrawMessage('Error al conectar con el servidor.');
-                            });
-                    })
-                    .catch(error => {
-                        console.error('Error al verificar usuario:', error);
-                        showWithdrawMessage('Error al conectar con el servidor.');
-                    });
-            }
-
-            function handleWithdrawCancel() {
-                withdrawForm.classList.remove('active');
-                gameContainer.classList.add('active');
-                showWithdrawMessage('');
-            }
-
-            // Funciones de recarga
-function handleReload() {
-    fetch(`/user/${username}`)
-        .then(response => response.json())
-        .then(user => {
-            if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                showMessage('Debes aceptar las Políticas y Condiciones para recargar Neig.');
-                return;
-            }
-            reloadForm.classList.add('active');
-            gameContainer.classList.remove('active');
-            reloadAmount.value = '';
-            showReloadMessage('');
-        })
-        .catch(error => {
-            console.error('Error al verificar usuario:', error);
-            showMessage('Error al conectar con el servidor.');
-        });
+    try {
+        const policiesWindow = window.open('', '_blank');
+        if (policiesWindow) {
+            policiesWindow.document.write(policiesHtml);
+            policiesWindow.document.close();
+        } else {
+            showMessage('No se pudo abrir la ventana de políticas. Desactiva el bloqueador de ventanas emergentes.');
+            const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(policiesHtml);
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'politicas_y_condiciones.html';
+            link.textContent = 'Descargar Políticas';
+            messageBox.appendChild(link);
+        }
+        console.log('Ventana de políticas abierta o enlace de descarga proporcionado');
+    } catch (error) {
+        console.error('Error al abrir ventana de políticas:', error);
+        showMessage('Error al mostrar las políticas.');
+    }
 }
 
+                    // Funciones del juego
+function updatePlayerInfo() {
+    try {
+        if (!username) {
+            console.error('No hay username para actualizar información del jugador');
+            return;
+        }
+        usernameDisplay.textContent = `Usuario: ${sanitizeContent(username)}`;
+        coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
+        console.log(`Información del jugador actualizada: ${username}, ${playerCoins} Neig`);
+    } catch (error) {
+        console.error('Error al actualizar información del jugador:', error);
+        showErrorMessage('message-box', 'Error al actualizar información del jugador.');
+    }
+}
+
+async function updateUserCoins(username, coins) {
+    try {
+        console.log(`Actualizando monedas en el servidor para ${username}: ${coins}`);
+        const response = await fetch('/update-coins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, coins })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            console.warn('Error al actualizar monedas en el servidor:', result.detail);
+            showErrorMessage('message-box', result.detail || 'Error al actualizar monedas.');
+        }
+    } catch (error) {
+        console.error('Error al actualizar monedas:', error);
+        showErrorMessage('message-box', 'Error al conectar con el servidor.');
+    }
+}
+
+async function handleCompete() {
+    if (!username) {
+        showMessage('Inicia sesión para jugar.');
+        return;
+    }
+    if (playerCoins < 100) {
+        showMessage('No tienes suficientes Neig para jugar (mínimo 100 Neig).');
+        return;
+    }
+    if (hasParticipated) {
+        showMessage('Ya has participado en esta ronda.');
+        return;
+    }
+    try {
+        console.log(`Enviando solicitud de competir para ${username}`);
+        const response = await fetch('/compete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, sessionId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            playerCoins -= 100;
+            hasParticipated = true;
+            lastPlayer = username;
+            competeButton.disabled = true;
+            competeButton.textContent = 'Esperando...';
+            updatePlayerInfo();
+            updateUserCoins(username, playerCoins);
+            showMessage('¡Has apostado 100 Neig! Espera el resultado.');
+            socket.emit('compete', { username });
+        } else {
+            showMessage(result.detail || 'Error al participar en el juego.');
+        }
+    } catch (error) {
+        console.error('Error al competir:', error);
+        showMessage('Error al conectar con el servidor.');
+    }
+}
+
+function showStatsWindow() {
+    try {
+        const statsWindow = window.open('', '_blank');
+        if (statsWindow) {
+            statsWindow.document.write(statsHtml);
+            statsWindow.document.close();
+        } else {
+            showMessage('No se pudo abrir la ventana de estadísticas. Desactiva el bloqueador de ventanas emergentes.');
+            const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(statsHtml);
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'estadisticas.html';
+            link.textContent = 'Descargar Estadísticas';
+            messageBox.appendChild(link);
+        }
+        console.log('Ventana de estadísticas abierta o enlace de descarga proporcionado');
+    } catch (error) {
+        console.error('Error al abrir ventana de estadísticas:', error);
+        showMessage('Error al mostrar las estadísticas.');
+    }
+}
+
+// Funciones de recarga
 async function handleReloadSubmit() {
-    const amount = parseInt(reloadAmount.value);
-    if (!amount || amount <= 0) {
+    const amount = parseInt(reloadAmount.value.trim());
+    if (!amount || amount < 1) {
         showReloadMessage('Por favor, ingresa una cantidad válida.');
         return;
     }
-    confirmAmount.textContent = amount;
-    reloadForm.classList.remove('active');
-    confirmReloadModal.classList.add('active');
-    showConfirmReloadMessage('');
+    try {
+        console.log(`Confirmando recarga de ${amount} ARS`);
+        confirmAmount.textContent = amount;
+        reloadForm.classList.remove('active');
+        confirmReloadModal.classList.add('active');
+        reloadAmount.value = '';
+    } catch (error) {
+        console.error('Error al preparar recarga:', error);
+        showReloadMessage('Error al procesar la recarga.');
+    }
 }
 
 async function handleConfirmReloadSubmit() {
     const amount = parseInt(confirmAmount.textContent);
+    if (!amount || amount < 1) {
+        showConfirmReloadMessage('Cantidad inválida.');
+        return;
+    }
     try {
+        console.log(`Enviando solicitud de recarga de ${amount} ARS para ${username}`);
         const response = await fetch('/create-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, amount })
+            body: JSON.stringify({ amount, username })
         });
         const result = await response.json();
-        if (result.success && result.paymentUrl) {
-            // Redirigir al enlace de pago de Mercado Pago
-            window.location.href = result.paymentUrl;
+        if (result.success && result.paymentLink) {
+            showConfirmReloadMessage('Redirigiendo a Mercado Pago...');
+            setTimeout(() => {
+                window.location.href = result.paymentLink;
+                confirmReloadModal.classList.remove('active');
+            }, 2000);
         } else {
             showConfirmReloadMessage(result.detail || 'Error al crear el enlace de pago.');
             confirmReloadModal.classList.remove('active');
-            gameContainer.classList.add('active');
         }
     } catch (error) {
         console.error('Error al crear pago:', error);
         showConfirmReloadMessage('Error al conectar con el servidor.');
         confirmReloadModal.classList.remove('active');
-        gameContainer.classList.add('active');
     }
 }
 
-function handleConfirmReloadCancel() {
-    confirmReloadModal.classList.remove('active');
-    gameContainer.classList.add('active');
-    showConfirmReloadMessage('');
-}
-
-function handleReloadCancel() {
-    reloadForm.classList.remove('active');
-    gameContainer.classList.add('active');
-    showReloadMessage('');
-}
-
-// Actualizar información del jugador
-function updatePlayerInfo() {
-    usernameDisplay.textContent = `Usuario: ${username}`;
-    coinsDisplay.textContent = `Saldo: ${playerCoins} Neig`;
-}
-
-// Actualizar monedas del usuario
-function updateUserCoins(username, coins) {
-    socket.emit('update coins', { username, coins });
-}
-
-// Manejar mensaje de recarga exitosa desde URL
 function handlePaymentSuccess() {
     const urlParams = new URLSearchParams(window.location.search);
-    const amount = urlParams.get('amount');
-    if (amount) {
-        const parsedAmount = parseInt(amount);
-        if (!isNaN(parsedAmount)) {
-            playerCoins += parsedAmount;
-            updateUserCoins(username, playerCoins);
-            updatePlayerInfo();
-            showMessage(`Usted compró ${parsedAmount} Neig`);
-            // Limpiar parámetros de la URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+    const amount = parseInt(urlParams.get('amount'));
+    if (amount && username) {
+        playerCoins += amount;
+        updatePlayerInfo();
+        updateUserCoins(username, playerCoins);
+        showMessage(`¡Recarga exitosa! Has añadido ${amount} Neig a tu saldo.`);
+        console.log(`Recarga exitosa: ${amount} Neig para ${username}`);
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
+// Funciones de retiro
+async function handleWithdrawSubmit() {
+    const amount = parseInt(withdrawAmount.value.trim());
+    const currency = withdrawCurrency.value;
+    if (!amount || amount < 1) {
+        showWithdrawMessage('Por favor, ingresa una cantidad válida.');
+        return;
+    }
+    if (amount > playerCoins && currency === 'Neig') {
+        showWithdrawMessage('No tienes suficientes Neig para retirar.');
+        return;
+    }
+    try {
+        console.log(`Enviando solicitud de retiro de ${amount} ${currency} para ${username}`);
+        const response = await fetch('/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, amount, currency })
+        });
+        const result = await response.json();
+        if (result.success) {
+            if (currency === 'Neig') {
+                playerCoins -= amount;
+                updatePlayerInfo();
+                updateUserCoins(username, playerCoins);
+            }
+            showWithdrawMessage(`Solicitud de retiro enviada. Puede tardar hasta 7 días.`);
+            withdrawForm.classList.remove('active');
+            withdrawAmount.value = '';
+        } else {
+            showWithdrawMessage(result.detail || 'Error al procesar el retiro.');
         }
+    } catch (error) {
+        console.error('Error al retirar:', error);
+        showWithdrawMessage('Error al conectar con el servidor.');
+    }
+}
+
+// Funciones de configuración
+async function handleSettingsSave() {
+    const displayName = settingsDisplayName.value.trim();
+    const cvu = settingsCvu.value.trim();
+    const metamask = settingsMetamask.value.trim();
+    if (!displayName && !cvu && !metamask) {
+        showSettingsMessage('Por favor, completa al menos un campo.');
+        return;
+    }
+    try {
+        console.log(`Guardando configuración para ${username}`);
+        const response = await fetch('/update-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, displayName, cvu, metamask })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showSettingsMessage('Configuración guardada correctamente.', true);
+            settingsContainer.classList.remove('active');
+            gameContainer.classList.add('active');
+        } else {
+            showSettingsMessage(result.detail || 'Error al guardar la configuración.');
+        }
+    } catch (error) {
+        console.error('Error al guardar configuración:', error);
+        showSettingsMessage('Error al conectar con el servidor.');
+    }
+}
+
+// Funciones de cierre de sesión
+async function handleLogout() {
+    try {
+        console.log(`Cerrando sesión para ${username}`);
+        const response = await fetch('/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, sessionId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            username = null;
+            sessionId = null;
+            playerCoins = 1000;
+            hasParticipated = false;
+            localStorage.removeItem('username');
+            localStorage.removeItem('sessionId');
+            gameContainer.classList.remove('active');
+            authContainer.classList.add('active');
+            socket.emit('leave', username);
+            showMessage('Has cerrado sesión correctamente.');
+        } else {
+            showMessage(result.detail || 'Error al cerrar sesión.');
+        }
+    } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+        showMessage('Error al conectar con el servidor.');
     }
 }
 
 // Inicializar juego
-function initializeGame() {
-    socket.emit('join', username);
-    initializeChat();
-    updatePoliciesStatus();
-    fetch(`/user/${username}`)
-        .then(response => response.json())
-        .then(user => {
-            playerCoins = user.coins || 1000;
+async function initializeGame() {
+    try {
+        console.log(`Inicializando juego para ${username}`);
+        updatePlayerInfo();
+        updatePoliciesStatus();
+        initializeChat();
+        socket.emit('join', username);
+        const response = await fetch(`/user/${username}`);
+        const result = await response.json();
+        if (result.success && result.user) {
+            playerCoins = result.user.coins || 1000;
             updatePlayerInfo();
-            // Verificar si hay un pago exitoso
-            handlePaymentSuccess();
-        })
-        .catch(error => {
-            console.error('Error al cargar datos del usuario:', error);
-            showMessage('Error al cargar datos del usuario.');
-        });
+        }
+        handlePaymentSuccess();
+    } catch (error) {
+        console.error('Error al inicializar juego:', error);
+        showErrorMessage('message-box', 'Error al inicializar el juego.');
+    }
+}
+
+// Verificar sesión al cargar
+async function checkSession() {
+    const storedUsername = localStorage.getItem('username');
+    const storedSessionId = localStorage.getItem('sessionId');
+    if (storedUsername && storedSessionId) {
+        try {
+            console.log(`Verificando sesión para ${storedUsername}`);
+            const response = await fetch('/check-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: storedUsername, sessionId: storedSessionId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                username = storedUsername;
+                sessionId = storedSessionId;
+                authContainer.classList.remove('active');
+                if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                    gameContainer.classList.add('active');
+                    initializeGame();
+                } else if (!result.telegramVerified) {
+                    showVerificationInstructions(storedUsername);
+                    showAuthMessage(`Debes verificar tu cuenta enviando /start ${storedUsername} a @NeigBot en Telegram.`);
+                } else {
+                    policiesContainer.classList.add('active');
+                }
+            } else {
+                localStorage.removeItem('username');
+                localStorage.removeItem('sessionId');
+                authContainer.classList.add('active');
+            }
+        } catch (error) {
+            console.error('Error al verificar sesión:', error);
+            localStorage.removeItem('username');
+            localStorage.removeItem('sessionId');
+            authContainer.classList.add('active');
+        }
+    }
 }
 
 // Event Listeners
@@ -1798,134 +1893,55 @@ authToggle.addEventListener('click', toggleAuthMode);
 policiesAccept.addEventListener('click', handlePoliciesAccept);
 policiesReject.addEventListener('click', handlePoliciesReject);
 policiesLink.addEventListener('click', showPoliciesWindow);
+competeButton.addEventListener('click', handleCompete);
 statsButton.addEventListener('click', showStatsWindow);
+reloadButton.addEventListener('click', () => {
+    if (policiesStatus.classList.contains('rejected')) {
+        showMessage('Debes aceptar las Políticas y Condiciones para recargar Neig.');
+        return;
+    }
+    reloadForm.classList.add('active');
+});
+withdrawButton.addEventListener('click', () => {
+    if (policiesStatus.classList.contains('rejected')) {
+        showMessage('Debes aceptar las Políticas y Condiciones para retirar Neig.');
+        return;
+    }
+    withdrawForm.classList.add('active');
+});
 settingsButton.addEventListener('click', () => {
     settingsContainer.classList.add('active');
     gameContainer.classList.remove('active');
-    loadUserSettings();
 });
+logoutButton.addEventListener('click', handleLogout);
 settingsSave.addEventListener('click', handleSettingsSave);
-settingsBack.addEventListener('click', handleSettingsBack);
-withdrawButton.addEventListener('click', handleWithdraw);
+settingsBack.addEventListener('click', () => {
+    settingsContainer.classList.remove('active');
+    gameContainer.classList.add('active');
+});
 withdrawSubmit.addEventListener('click', handleWithdrawSubmit);
-withdrawCancel.addEventListener('click', handleWithdrawCancel);
-reloadButton.addEventListener('click', handleReload);
+withdrawCancel.addEventListener('click', () => {
+    withdrawForm.classList.remove('active');
+    withdrawAmount.value = '';
+    withdrawMessage.textContent = '';
+});
 reloadSubmit.addEventListener('click', handleReloadSubmit);
-reloadCancel.addEventListener('click', handleReloadCancel);
+reloadCancel.addEventListener('click', () => {
+    reloadForm.classList.remove('active');
+    reloadAmount.value = '';
+    reloadMessage.textContent = '';
+});
 confirmReloadSubmit.addEventListener('click', handleConfirmReloadSubmit);
-confirmReloadCancel.addEventListener('click', handleConfirmReloadCancel);
-competeButton.addEventListener('click', () => {
-    fetch(`/user/${username}`)
-        .then(response => response.json())
-        .then(user => {
-            if (!user.policiesAccepted || user.policiesVersion !== POLICIES_VERSION) {
-                showMessage('Debes aceptar las Políticas y Condiciones para jugar.');
-                return;
-            }
-            if (playerCoins < 100) {
-                showMessage('No tienes suficientes Neig. Recarga para continuar.');
-                return;
-            }
-            if (!hasParticipated) {
-                fetch('/compete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, sessionId })
-                })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            playerCoins -= 100;
-                            updateUserCoins(username, playerCoins);
-                            updatePlayerInfo();
-                            hasParticipated = true;
-                            lastPlayer = username;
-                            competeButton.disabled = true;
-                            competeButton.textContent = 'Esperando Resultado...';
-                            socket.emit('compete', { username });
-                            showMessage('¡Has apostado 100 Neig! Espera el resultado.');
-                        } else {
-                            showMessage(result.detail || 'Error al competir.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al competir:', error);
-                        showMessage('Error al conectar con el servidor.');
-                    });
-            } else {
-                showMessage('Ya has participado en esta ronda. Espera a que termine.');
-            }
-        })
-        .catch(error => {
-            console.error('Error al verificar usuario:', error);
-            showMessage('Error al conectar con el servidor.');
-        });
+confirmReloadCancel.addEventListener('click', () => {
+    confirmReloadModal.classList.remove('active');
+    confirmAmount.textContent = '';
+    confirmReloadMessage.textContent = '';
 });
 
-logoutButton.addEventListener('click', () => {
-    fetch('/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, sessionId })
-    })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                username = null;
-                sessionId = null;
-                playerCoins = 1000;
-                hasParticipated = false;
-                lastPlayer = null;
-                gameContainer.classList.remove('active');
-                authContainer.classList.add('active');
-                showAuthMessage('Sesión cerrada exitosamente.', true);
-                socket.emit('leave', username);
-            } else {
-                showMessage('Error al cerrar sesión.');
-            }
-        })
-        .catch(error => {
-            console.error('Error al cerrar sesión:', error);
-            showMessage('Error al conectar con el servidor.');
-        });
-});
-
-// Inicializar al cargar
-fetch('/check-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId: localStorage.getItem('sessionId') })
-})
-    .then(response => response.json())
-    .then(result => {
-        if (result.success && result.username) {
-            username = result.username;
-            sessionId = result.sessionId;
-            authContainer.classList.remove('active');
-            fetch(`/user/${username}`)
-                .then(response => response.json())
-                .then(user => {
-                    if (user.policiesAccepted && user.policiesVersion === POLICIES_VERSION && user.telegramVerified) {
-                        gameContainer.classList.add('active');
-                        initializeGame();
-                    } else if (!user.telegramVerified) {
-                        showVerificationInstructions(username);
-                        showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
-                    } else {
-                        policiesContainer.classList.add('active');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al verificar usuario:', error);
-                    authContainer.classList.add('active');
-                });
-        }
-    })
-    .catch(error => {
-        console.error('Error al verificar sesión:', error);
-        authContainer.classList.add('active');
-    });
+// Iniciar verificación de sesión
+checkSession();
 });
 </script>
 </body>
-</html>
+    </html>
+                    
