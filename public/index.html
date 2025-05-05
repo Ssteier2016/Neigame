@@ -1328,10 +1328,8 @@
                                 policiesContainer.classList.add('active');
                             }
                         } else {
-                            const code = result.message.split(': ')[1];
-                            showAuthMessage('Registro exitoso. Verifica tu cuenta en Telegram.', true);
-                            showVerificationInstructions(code);
-                            setTimeout(() => {
+                              showAuthMessage('Registro exitoso. Verifica tu cuenta enviando /start ' + username + ' a @NeigBot en Telegram.', true);
+                              setTimeout(() => {
                                 toggleAuthMode();
                                 authContainer.classList.add('active');
                             }, 15000);
