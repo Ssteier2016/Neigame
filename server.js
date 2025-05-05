@@ -23,7 +23,7 @@ const ADMIN_CHAT_ID = '1624130940';
 
 // Configurar Mercado Pago
 mercadopago.configure({
-    access_token: 'YOUR_MERCADO_PAGO_ACCESS_TOKEN' // Reemplaza con tu access token de Mercado Pago
+    access_token: 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222' // Reemplaza con tu access token de Mercado Pago
 });
 
 const bot = new TelegramBot(botToken, {
