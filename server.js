@@ -43,7 +43,9 @@ const verificationCodes = {};
 const stats = {
     clicks: {}, // { username: número de clics }
     winners: [], // [{ username, timestamp, amount }]
-    losses: {} // { username: Neig perdidos }
+    losses: {}, // { username: Neig perdidos }
+    topWinners: {}, // { username: número de victorias }
+    totalBets: {} // { username: total Neig apostados }
 };
 
 // Rutas
@@ -176,11 +178,19 @@ app.post('/reload', (req, res) => {
 });
 
 app.get('/stats', (req, res) => {
+    // Calcular topWinners dinámicamente a partir de stats.winners
+    const topWinners = {};
+    stats.winners.forEach(winner => {
+        topWinners[winner.username] = (topWinners[winner.username] || 0) + 1;
+    });
+
     res.json({
         success: true,
         clicks: stats.clicks,
         winners: stats.winners,
-        losses: stats.losses
+        losses: stats.losses,
+        topWinners,
+        totalBets: stats.totalBets
     });
 });
 
@@ -224,6 +234,7 @@ io.on('connection', (socket) => {
             lastPlayer = username;
             stats.clicks[username] = (stats.clicks[username] || 0) + 1;
             stats.losses[username] = (stats.losses[username] || 0) + 100;
+            stats.totalBets[username] = (stats.totalBets[username] || 0) + 100; // Registrar apuesta
             io.emit('timer update', { seconds: timer, pot, lastPlayer });
         }
     });
@@ -270,6 +281,7 @@ setInterval(() => {
                 stats.winners.pop();
             }
             stats.losses[winner] = (stats.losses[winner] || 0) - playerWinAmount;
+            stats.topWinners[winner] = (stats.topWinners[winner] || 0) + 1; // Registrar victoria
         }
         io.emit('timer update', { seconds: 0, pot, lastPlayer: winner });
         pot = Math.round(pot * 0.06);
