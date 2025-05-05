@@ -169,9 +169,15 @@ app.post('/withdraw', async (req, res) => {
     // Enviar notificación al chat de administración
     try {
         const timestamp = new Date().toLocaleString('es-ES');
+        const settings = users[username].settings || {};
+        const withdrawalMethod = currency === 'Pesos' 
+            ? (settings.cvu || 'No proporcionado')
+            : (settings.metamask || 'No proporcionado');
+        const methodLabel = currency === 'Pesos' ? 'CBU/CVU/Alias' : 'Dirección MetaMask';
         const message = `📤 Retiro procesado:\n` +
                         `Usuario: ${username}\n` +
                         `Cantidad: ${amount} ${currency}\n` +
+                        `${methodLabel}: ${withdrawalMethod}\n` +
                         `Fecha: ${timestamp}`;
         await bot.sendMessage(ADMIN_CHAT_ID, message);
     } catch (error) {
