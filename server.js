@@ -6,7 +6,7 @@ const socketIo = require('socket.io');
 const http = require('http');
 const path = require('path');
 const mercadopago = require('mercadopago'); // Agregar Mercado Pago
-
+    
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -22,10 +22,17 @@ const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8';
 const ADMIN_CHAT_ID = '1624130940';
 
 // Configurar Mercado Pago
-mercadopago.configure({
-    access_token: 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222' // Reemplaza con tu access token de Mercado Pago
-});
+console.log('Mercado Pago module:', mercadopago); // Depurar qué exporta el módulo
 
+try {
+    mercadopago.configure({
+    access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222' // Reemplaza con tu access token de Mercado Pago
+});
+console.log('Mercado Pago configurado correctamente');
+} catch (error) {
+    console.error('Error al configurar Mercado Pago:', error);
+    throw error;
+}
 const bot = new TelegramBot(botToken, {
     polling: {
         interval: 1000,
