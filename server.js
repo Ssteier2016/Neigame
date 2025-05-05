@@ -17,8 +17,21 @@ const io = socketIo(server, {
 });
 
 const port = process.env.PORT || 3000;
-const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token
-const bot = new TelegramBot(botToken, { polling: true });
+const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token real
+const bot = new TelegramBot(botToken, {
+    polling: {
+        interval: 1000,
+        autoStart: true,
+        params: {
+            timeout: 10
+        }
+    }
+});
+
+// Manejar errores de polling
+bot.on('polling_error', (error) => {
+    console.error('Error en polling de Telegram:', error);
+});
 
 // Middleware
 app.use(express.json());
@@ -27,6 +40,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Base de datos en memoria
 const users = {};
 const verificationCodes = {};
+const stats = {
+    clicks: {}, // { username: número de clics }
+    winners: [], // [{ username, timestamp, amount }]
+    losses: {} // { username: Neig perdidos }
+};
 
 // Rutas
 app.post('/register', async (req, res) => {
@@ -157,10 +175,19 @@ app.post('/reload', (req, res) => {
     res.json({ success: true });
 });
 
-// Telegram Bot
+app.get('/stats', (req, res) => {
+    res.json({
+        success: true,
+        clicks: stats.clicks,
+        winners: stats.winners,
+        losses: stats.losses
+    });
+});
+
+// Telegram Bot - Verificación
 bot.onText(/\/verify (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const code = match[1];
+    const code = match[1].trim();
     const username = verificationCodes[code];
     if (!username) {
         bot.sendMessage(chatId, 'Código de verificación inválido.');
@@ -176,6 +203,7 @@ const connectedUsers = new Set();
 const players = [];
 let pot = 0;
 let timer = 240;
+let lastPlayer = null;
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
@@ -185,13 +213,18 @@ io.on('connection', (socket) => {
         socket.username = username;
         io.emit('users update', Array.from(connectedUsers));
         io.emit('user joined', { user: username });
+        io.to(socket.id).emit('timer update', { seconds: timer, pot, lastPlayer });
     });
 
     socket.on('compete', ({ username }) => {
         if (!players.includes(username)) {
             players.push(username);
             pot += 100;
-            io.emit('timer update', { seconds: timer, pot, winner: null });
+            timer = 240;
+            lastPlayer = username;
+            stats.clicks[username] = (stats.clicks[username] || 0) + 1;
+            stats.losses[username] = (stats.losses[username] || 0) + 100;
+            io.emit('timer update', { seconds: timer, pot, lastPlayer });
         }
     });
 
@@ -219,15 +252,29 @@ io.on('connection', (socket) => {
 setInterval(() => {
     if (timer > 0) {
         timer--;
-        io.emit('timer update', { seconds: timer, pot, winner: null });
+        io.emit('timer update', { seconds: timer, pot, lastPlayer });
     } else {
         let winner = null;
-        if (players.length > 0) {
-            winner = players[Math.floor(Math.random() * players.length)];
+        if (lastPlayer) {
+            winner = lastPlayer;
+            const playerWinAmount = Math.round(pot * 0.89);
+            if (users[winner]) {
+                users[winner].coins += playerWinAmount;
+            }
+            stats.winners.unshift({
+                username: winner,
+                timestamp: new Date().toLocaleString('es-ES'),
+                amount: playerWinAmount
+            });
+            if (stats.winners.length > 5) {
+                stats.winners.pop();
+            }
+            stats.losses[winner] = (stats.losses[winner] || 0) - playerWinAmount;
         }
-        io.emit('timer update', { seconds: 0, pot, winner });
+        io.emit('timer update', { seconds: 0, pot, lastPlayer: winner });
         pot = Math.round(pot * 0.06);
         players.length = 0;
+        lastPlayer = null;
         timer = 240;
     }
 }, 1000);
