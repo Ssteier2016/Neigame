@@ -8,8 +8,18 @@ const { Server } = require('socket.io');
 const mercadopago = require('mercadopago');
 const path = require('path');
 const dotenv = require('dotenv');
+const cors = require('cors');
 
 dotenv.config();
+
+// Validar variables de entorno
+const requiredEnvVars = ['MONGO_URI', 'SESSION_SECRET', 'MERCADOPAGO_ACCESS_TOKEN'];
+for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+        console.error(`Error: Falta la variable de entorno ${envVar}`);
+        process.exit(1);
+    }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +36,7 @@ mercadopago.configure({
 });
 
 // Middleware
+app.use(cors({ origin: '*' })); // Permitir todas las solicitudes CORS (ajustar en producción)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
@@ -33,13 +44,19 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
-    cookie: { maxAge: 24 * 60 * 60 * 1000 }
+    cookie: {
+        maxAge: 24 * 60 * 60 * 1000, // 1 día
+        secure: process.env.NODE_ENV === 'production' // HTTPS en producción
+    }
 }));
 
 // Conexión a MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('Conectado a MongoDB'))
-    .catch(err => console.error('Error al conectar a MongoDB:', err));
+    .catch(err => {
+        console.error('Error al conectar a MongoDB:', err);
+        process.exit(1);
+    });
 
 // Esquema de usuario
 const userSchema = new mongoose.Schema({
@@ -90,8 +107,10 @@ function startTimer() {
                         { $inc: { coins: playerWinAmount, 'stats.wins': 1 } },
                         { new: true }
                     ).then(user => {
-                        io.emit('coins update', { username: lastPlayer, coins: user.coins });
-                    });
+                        if (user) {
+                            io.emit('coins update', { username: lastPlayer, coins: user.coins });
+                        }
+                    }).catch(err => console.error('Error al actualizar ganador:', err));
                     lastPlayer = null;
                     timer = 240;
                     gameActive = false;
@@ -106,37 +125,49 @@ function startTimer() {
 const connectedUsers = new Set();
 io.on('connection', (socket) => {
     socket.on('join', (username) => {
-        connectedUsers.add(username);
-        socket.username = username;
-        io.emit('user joined', { user: username });
-        io.emit('users update', Array.from(connectedUsers));
+        if (username) {
+            connectedUsers.add(username);
+            socket.username = username;
+            io.emit('user joined', { user: username });
+            io.emit('users update', Array.from(connectedUsers));
+        }
     });
 
     socket.on('leave', (username) => {
-        connectedUsers.delete(username);
-        io.emit('user left', { user: username });
-        io.emit('users update', Array.from(connectedUsers));
+        if (username) {
+            connectedUsers.delete(username);
+            io.emit('user left', { user: username });
+            io.emit('users update', Array.from(connectedUsers));
+        }
     });
 
     socket.on('chat message', ({ user, message, type }) => {
-        io.emit('chat message', { user, message, type });
+        if (user && message) {
+            io.emit('chat message', { user, message, type });
+        }
     });
 
     socket.on('compete', ({ username }) => {
-        lastPlayer = username;
-        pot += 100;
-        startTimer();
-        io.emit('timer update', { seconds: timer, pot, lastPlayer });
+        if (username) {
+            lastPlayer = username;
+            pot += 100;
+            startTimer();
+            io.emit('timer update', { seconds: timer, pot, lastPlayer });
+        }
     });
 
     socket.on('update coins', ({ username, coins }) => {
-        User.findOneAndUpdate(
-            { username },
-            { coins },
-            { new: true }
-        ).then(user => {
-            io.emit('coins update', { username, coins: user.coins });
-        });
+        if (username && coins >= 0) {
+            User.findOneAndUpdate(
+                { username },
+                { coins },
+                { new: true }
+            ).then(user => {
+                if (user) {
+                    io.emit('coins update', { username, coins: user.coins });
+                }
+            }).catch(err => console.error('Error al actualizar monedas:', err));
+        }
     });
 
     socket.on('disconnect', () => {
@@ -148,9 +179,13 @@ io.on('connection', (socket) => {
     });
 });
 
-// Rutas existentes (login, register, compete, etc.)
+// Rutas
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+    console.log(`Registro solicitado para username: ${username}`);
+    if (!username || !password) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o password.' });
+    }
     try {
         const existingUser = await User.findOne({ username });
         if (existingUser) {
@@ -168,6 +203,10 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    console.log(`Inicio de sesión solicitado para username: ${username}`);
+    if (!username || !password) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o password.' });
+    }
     try {
         const user = await User.findOne({ username });
         if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -177,6 +216,7 @@ app.post('/login', async (req, res) => {
         const sessionId = req.sessionID;
         res.json({
             success: true,
+            username,
             sessionId,
             policiesAccepted: user.policiesAccepted,
             policiesVersion: user.policiesVersion,
@@ -189,16 +229,19 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/check-session', (req, res) => {
+    console.log('Verificando sesión:', req.sessionID);
     if (req.session.user) {
         res.json({ success: true, username: req.session.user.username, sessionId: req.sessionID });
     } else {
-        res.json({ success: false });
+        res.json({ success: false, detail: 'No hay sesión activa.' });
     }
 });
 
 app.post('/logout', (req, res) => {
+    console.log('Cerrando sesión:', req.sessionID);
     req.session.destroy(err => {
         if (err) {
+            console.error('Error al cerrar sesión:', err);
             return res.status(500).json({ success: false, detail: 'Error al cerrar sesión.' });
         }
         res.json({ success: true });
@@ -206,12 +249,14 @@ app.post('/logout', (req, res) => {
 });
 
 app.get('/user/:username', async (req, res) => {
+    const { username } = req.params;
+    console.log(`Obteniendo usuario: ${username}`);
     try {
-        const user = await User.findOne({ username: req.params.username });
+        const user = await User.findOne({ username });
         if (!user) {
             return res.status(404).json({ success: false, detail: 'Usuario no encontrado.' });
         }
-        res.json(user);
+        res.json({ success: true, user });
     } catch (error) {
         console.error('Error al obtener usuario:', error);
         res.status(500).json({ success: false, detail: 'Error al obtener usuario.' });
@@ -220,6 +265,10 @@ app.get('/user/:username', async (req, res) => {
 
 app.post('/accept-policies', async (req, res) => {
     const { username, policiesVersion } = req.body;
+    console.log(`Aceptando políticas para ${username}, versión: ${policiesVersion}`);
+    if (!username || !policiesVersion) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o policiesVersion.' });
+    }
     try {
         const user = await User.findOneAndUpdate(
             { username },
@@ -236,8 +285,12 @@ app.post('/accept-policies', async (req, res) => {
     }
 });
 
-app.post('/reject-policies', async (req, res) => {
+app.post('/ reject-policies', async (req, res) => {
     const { username, policiesVersion } = req.body;
+    console.log(`Rechazando políticas para ${username}, versión: ${policiesVersion}`);
+    if (!username || !policiesVersion) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o policiesVersion.' });
+    }
     try {
         const user = await User.findOneAndUpdate(
             { username },
@@ -256,6 +309,10 @@ app.post('/reject-policies', async (req, res) => {
 
 app.post('/update-settings', async (req, res) => {
     const { username, settings } = req.body;
+    console.log(`Actualizando configuración para ${username}`);
+    if (!username || !settings) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o settings.' });
+    }
     try {
         const user = await User.findOneAndUpdate(
             { username },
@@ -274,11 +331,15 @@ app.post('/update-settings', async (req, res) => {
 
 app.post('/compete', async (req, res) => {
     const { username, sessionId } = req.body;
+    console.log(`Compitiendo: ${username}, sessionId: ${sessionId}`);
     if (!req.session.user || req.session.user.username !== username || req.sessionID !== sessionId) {
         return res.status(401).json({ success: false, detail: 'No autorizado.' });
     }
     try {
         const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ success: false, detail: 'Usuario no encontrado.' });
+        }
         if (user.coins < 100) {
             return res.status(400).json({ success: false, detail: 'No tienes suficientes Neig.' });
         }
@@ -296,6 +357,10 @@ app.post('/compete', async (req, res) => {
 
 app.post('/withdraw', async (req, res) => {
     const { username, amount, currency } = req.body;
+    console.log(`Retirando ${amount} ${currency} para ${username}`);
+    if (!username || !amount || !currency) {
+        return res.status(400).json({ success: false, detail: 'Faltan username, amount o currency.' });
+    }
     try {
         const user = await User.findOne({ username });
         if (!user) {
@@ -317,6 +382,7 @@ app.post('/withdraw', async (req, res) => {
 });
 
 app.get('/stats', async (req, res) => {
+    console.log('Obteniendo estadísticas');
     try {
         const users = await User.find();
         const winners = users
@@ -350,9 +416,12 @@ app.get('/stats', async (req, res) => {
     }
 });
 
-// Nueva ruta para crear enlace de pago
 app.post('/create-payment', async (req, res) => {
     const { username, amount } = req.body;
+    console.log(`Creando pago para ${username}, monto: ${amount}`);
+    if (!username || !amount || amount <= 0) {
+        return res.status(400).json({ success: false, detail: 'Faltan username o amount válido.' });
+    }
     try {
         const user = await User.findOne({ username });
         if (!user) {
@@ -365,7 +434,7 @@ app.post('/create-payment', async (req, res) => {
             items: [
                 {
                     title: 'Recarga de Neighborcoin (Neig)',
-                    unit_price: amount,
+                    unit_price: parseFloat(amount),
                     quantity: 1,
                     currency_id: 'ARS'
                 }
@@ -380,6 +449,7 @@ app.post('/create-payment', async (req, res) => {
             external_reference: username
         };
         const response = await mercadopago.preferences.create(preference);
+        console.log('Enlace de pago creado:', response.body.init_point);
         res.json({ success: true, paymentUrl: response.body.init_point });
     } catch (error) {
         console.error('Error al crear enlace de pago:', error);
@@ -387,25 +457,29 @@ app.post('/create-payment', async (req, res) => {
     }
 });
 
-// Nueva ruta para manejar el webhook de Mercado Pago
 app.post('/webhook', async (req, res) => {
     const payment = req.body;
+    console.log('Webhook recibido:', payment);
     try {
-        if (payment.type === 'payment' && payment.data && payment.data.status === 'approved') {
+        if (payment.type === 'payment' && payment.data && payment.data.id) {
             const paymentInfo = await mercadopago.payment.findById(payment.data.id);
+            console.log('Información del pago:', paymentInfo.body);
             const username = paymentInfo.body.external_reference;
             const amount = paymentInfo.body.transaction_amount;
-            const user = await User.findOneAndUpdate(
-                { username },
-                { $inc: { coins: amount } },
-                { new: true }
-            );
-            if (user) {
-                io.emit('coins update', {
-                    username,
-                    coins: user.coins,
-                    message: `Usted compró ${amount} Neig`
-                });
+            if (paymentInfo.body.status === 'approved' && username && amount) {
+                const user = await User.findOneAndUpdate(
+                    { username },
+                    { $inc: { coins: amount } },
+                    { new: true }
+                );
+                if (user) {
+                    console.log(`Saldo actualizado para ${username}: ${user.coins} Neig`);
+                    io.emit('coins update', {
+                        username,
+                        coins: user.coins,
+                        message: `Usted compró ${amount} Neig`
+                    });
+                }
             }
         }
         res.status(200).send('OK');
@@ -415,12 +489,13 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-// Rutas de redirección post-pago
 app.get('/success', async (req, res) => {
     const { username, amount } = req.query;
+    console.log(`Redirección de éxito para ${username}, monto: ${amount}`);
     try {
         const user = await User.findOne({ username });
         if (!user) {
+            console.error('Usuario no encontrado en /success:', username);
             return res.redirect('/?error=Usuario no encontrado');
         }
         res.redirect(`/?amount=${amount}`);
@@ -431,15 +506,17 @@ app.get('/success', async (req, res) => {
 });
 
 app.get('/failure', (req, res) => {
+    console.log('Redirección de fallo de pago');
     res.redirect('/?error=Pago fallido');
 });
 
 app.get('/pending', (req, res) => {
+    console.log('Redirección de pago pendiente');
     res.redirect('/?error=Pago pendiente');
 });
 
-// Servir index.html
 app.get('/', (req, res) => {
+    console.log('Sirviendo index.html');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
