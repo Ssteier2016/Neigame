@@ -1343,85 +1343,94 @@
             }
 
             // Funciones de autenticación
-            async function handleAuthSubmit() {
-                const usernameInput = authUsername.value.trim();
-                const passwordInput = authPassword.value.trim();
-                const confirmPasswordInput = authConfirmPassword.value.trim();
+           async function handleAuthSubmit() {
+    const usernameInput = authUsername.value.trim();
+    const passwordInput = authPassword.value.trim();
+    const confirmPasswordInput = authConfirmPassword.value.trim();
 
-                if (!usernameInput || !passwordInput) {
-                    showAuthMessage('Por favor, completa todos los campos.');
-                    return;
+    console.log(`Intentando ${isLoginMode ? 'iniciar sesión' : 'registrarse'} con usuario: ${usernameInput}`);
+
+    if (!usernameInput || !passwordInput) {
+        showAuthMessage('Por favor, completa todos los campos.');
+        console.warn('Campos vacíos detectados');
+        return;
+    }
+
+    if (!/^[A-Za-z0-9]{3,20}$/.test(usernameInput)) {
+        showAuthMessage('El usuario debe tener entre 3 y 20 caracteres alfanuméricos.');
+        console.warn('Usuario inválido:', usernameInput);
+        return;
+    }
+
+    if (passwordInput.length < 6) {
+        showAuthMessage('La contraseña debe tener al menos 6 caracteres.');
+        console.warn('Contraseña demasiado corta');
+        return;
+    }
+
+    if (!isLoginMode && passwordInput !== confirmPasswordInput) {
+        showAuthMessage('Las contraseñas no coinciden.');
+        console.warn('Contraseñas no coinciden');
+        return;
+    }
+
+    const endpoint = isLoginMode ? '/login' : '/register';
+    try {
+        console.log(`Enviando solicitud a ${endpoint} con datos:`, { username: usernameInput, password: passwordInput });
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: usernameInput, password: passwordInput })
+        });
+
+        console.log(`Respuesta del servidor: Status ${response.status}`);
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Respuesta no es JSON:', text);
+            showAuthMessage('Error del servidor: Respuesta no válida');
+            return;
+        }
+
+        const result = await response.json();
+        console.log('Resultado de la autenticación:', result);
+
+        if (result.success) {
+            username = result.username || usernameInput;
+            if (isLoginMode) {
+                sessionId = result.sessionId;
+                localStorage.setItem('username', username);
+                localStorage.setItem('sessionId', sessionId);
+                authContainer.classList.remove('active');
+                if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                    gameContainer.classList.add('active');
+                    initializeGame();
+                } else if (!result.telegramVerified) {
+                    showVerificationInstructions(username);
+                    showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
+                    setTimeout(() => {
+                        authContainer.classList.add('active');
+                    }, 3000);
+                } else {
+                    policiesContainer.classList.add('active');
                 }
-
-                if (!/^[A-Za-z0-9]{3,20}$/.test(usernameInput)) {
-                    showAuthMessage('El usuario debe tener entre 3 y 20 caracteres alfanuméricos.');
-                    return;
-                }
-
-                if (passwordInput.length < 6) {
-                    showAuthMessage('La contraseña debe tener al menos 6 caracteres.');
-                    return;
-                }
-
-                if (!isLoginMode && passwordInput !== confirmPasswordInput) {
-                    showAuthMessage('Las contraseñas no coinciden.');
-                    return;
-                }
-
-                const endpoint = isLoginMode ? '/login' : '/register';
-                try {
-                    console.log(`Enviando solicitud a ${endpoint} para ${usernameInput}`);
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: usernameInput, password: passwordInput })
-                    });
-
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const text = await response.text();
-                        console.error('Respuesta no es JSON:', text);
-                        showAuthMessage('Error del servidor: Respuesta no válida');
-                        return;
-                    }
-
-                    const result = await response.json();
-                    console.log('Respuesta de autenticación:', result);
-                    if (result.success) {
-                        username = result.username || usernameInput;
-                        if (isLoginMode) {
-                            sessionId = result.sessionId;
-                            localStorage.setItem('username', username);
-                            localStorage.setItem('sessionId', sessionId);
-                            authContainer.classList.remove('active');
-                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
-                                gameContainer.classList.add('active');
-                                initializeGame();
-                            } else if (!result.telegramVerified) {
-                                showVerificationInstructions(username);
-                                showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
-                                setTimeout(() => {
-                                    authContainer.classList.add('active');
-                                }, 3000);
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
-                        } else {
-                            showAuthMessage(`Registro exitoso. Verifica tu cuenta enviando /start ${username} a @NeigBot en Telegram.`, true);
-                            showVerificationInstructions(username);
-                            setTimeout(() => {
-                                toggleAuthMode();
-                                authContainer.classList.add('active');
-                            }, 15000);
-                        }
-                    } else {
-                        showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
-                    }
-                } catch (error) {
-                    console.error('Error en autenticación:', error);
-                    showAuthMessage(`Error al conectar con el servidor: ${error.message}`);
-                }
+            } else {
+                showAuthMessage(`Registro exitoso. Verifica tu cuenta enviando /start ${username} a @NeigBot en Telegram.`, true);
+                showVerificationInstructions(username);
+                setTimeout(() => {
+                    toggleAuthMode();
+                    authContainer.classList.add('active');
+                }, 15000);
             }
+        } else {
+            showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
+            console.warn('Error de autenticación:', result.detail);
+        }
+    } catch (error) {
+        console.error('Error en autenticación:', error);
+        showAuthMessage(`Error al conectar con el servidor: ${error.message}`);
+    }
+}
 
             function toggleAuthMode() {
                 isLoginMode = !isLoginMode;
