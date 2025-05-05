@@ -1024,8 +1024,8 @@
             // Mostrar instrucciones de verificación
             function showVerificationInstructions(code) {
                 verificationCode.textContent = code;
-                verificationCommand.textContent = `/verify ${code}`;
-                verificationLink.href = `https://t.me/Neigbot?text=/verify%20${code}`;
+                verificationCommand.textContent = `/start ${usuario}`;
+                verificationLink.href = `https://t.me/Neigbot?text=/start%20${usuario}`;
                 verificationInstructions.classList.add('active');
                 setTimeout(() => {
                     verificationInstructions.classList.remove('active');
