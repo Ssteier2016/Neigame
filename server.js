@@ -35,11 +35,6 @@ bot.on('polling_error', (error) => {
     console.error('Error en polling de Telegram:', error);
 });
 
-bot.on('message', (msg) => {
-    console.log('Chat ID:', msg.chat.id);
-    bot.sendMessage(msg.chat.id, `Tu Chat ID es: ${msg.chat.id}`);
-});
-
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
