@@ -18,7 +18,7 @@ const io = socketIo(server, {
 
 const port = process.env.PORT || 3000;
 const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token real
-const adminChatId = 'YOUR_TELEGRAM_CHAT_ID'; // Reemplaza con tu ID de chat de Telegram
+const adminChatId = '1624130940'; // Reemplaza con tu ID de chat de Telegram
 
 const bot = new TelegramBot(botToken, {
     polling: {
