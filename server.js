@@ -17,7 +17,9 @@ const io = socketIo(server, {
 });
 
 const port = process.env.PORT || 3000;
-const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8'; // Reemplaza con tu token real
+const botToken = '7473215586:AAHSjicOkbWh5FVx_suIiZF9tRdD59dbJG8';
+const ADMIN_CHAT_ID = '1624130940';
+
 const bot = new TelegramBot(botToken, {
     polling: {
         interval: 1000,
@@ -28,10 +30,6 @@ const bot = new TelegramBot(botToken, {
     }
 });
 
-// Chat ID para notificaciones (reemplaza con tu chatId real)
-const ADMIN_CHAT_ID = '1624130940'; // Ejemplo: '123456789' o '-1001234567890' para un grupo/canal
-
-// Manejar errores de polling
 bot.on('polling_error', (error) => {
     console.error('Error en polling de Telegram:', error);
 });
@@ -42,13 +40,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Base de datos en memoria
 const users = {};
-const pendingVerifications = {}; // { chatId: username }
+const pendingVerifications = {}; // { username: { chatId: null } }
+const telegramChatIds = {}; // { chatId: username }
 const stats = {
-    clicks: {}, // { username: número de clics }
-    winners: [], // [{ username, timestamp, amount }]
-    losses: {}, // { username: Neig perdidos }
-    topWinners: {}, // { username: número de victorias }
-    totalBets: {} // { username: total Neig apostados }
+    clicks: {},
+    winners: [],
+    losses: {},
+    topWinners: {},
+    totalBets: {}
 };
 
 // Rutas
@@ -71,6 +70,7 @@ app.post('/register', async (req, res) => {
             policiesVersion: null,
             settings: {}
         };
+        pendingVerifications[username] = { chatId: null };
         res.json({ success: true, message: `Registro exitoso. Verifica tu cuenta enviando /start ${username} a @NeigBot en Telegram.` });
     } catch (error) {
         console.error('Error al registrar:', error);
@@ -159,12 +159,14 @@ app.post('/withdraw', async (req, res) => {
     if (!users[username]) {
         return res.status(404).json({ success: false, detail: 'Usuario no encontrado' });
     }
+    if (amount <= 0 || !Number.isFinite(amount)) {
+        return res.status(400).json({ success: false, detail: 'Cantidad inválida' });
+    }
     if (amount > users[username].coins) {
         return res.status(400).json({ success: false, detail: 'Saldo insuficiente' });
     }
     users[username].coins -= amount;
     
-    // Enviar notificación al chat de administración
     try {
         const timestamp = new Date().toLocaleString('es-ES');
         const settings = users[username].settings || {};
@@ -198,7 +200,6 @@ app.post('/reload', (req, res) => {
 });
 
 app.get('/stats', (req, res) => {
-    // Calcular topWinners dinámicamente a partir de stats.winners
     const topWinners = {};
     stats.winners.forEach(winner => {
         topWinners[winner.username] = (topWinners[winner.username] || 0) + 1;
@@ -219,28 +220,20 @@ bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const username = match[1].trim();
     
-    // Verificar si el chatId ya está asociado a otra cuenta
-    for (const user in users) {
-        if (users[user].telegramChatId === chatId) {
-            bot.sendMessage(chatId, `Este ID de Telegram ya está asociado a la cuenta ${user}. No puedes verificar otra cuenta.`);
-            return;
-        }
-    }
-    
-    // Verificar si el username existe y está pendiente de verificación
-    if (!users[username]) {
-        bot.sendMessage(chatId, 'Usuario no encontrado. Por favor, registra la cuenta primero.');
-        return;
-    }
-    if (users[username].telegramVerified) {
-        bot.sendMessage(chatId, `La cuenta ${username} ya está verificada.`);
+    if (telegramChatIds[chatId]) {
+        bot.sendMessage(chatId, `Este ID de Telegram ya está asociado a la cuenta ${telegramChatIds[chatId]}. No puedes verificar otra cuenta.`);
         return;
     }
     
-    // Registrar el chatId y marcar como verificado
+    if (!users[username] || !pendingVerifications[username]) {
+        bot.sendMessage(chatId, 'Usuario no encontrado o no pendiente de verificación. Por favor, registra la cuenta primero.');
+        return;
+    }
+    
     users[username].telegramVerified = true;
     users[username].telegramChatId = chatId;
-    pendingVerifications[chatId] = username;
+    telegramChatIds[chatId] = username;
+    delete pendingVerifications[username];
     bot.sendMessage(chatId, `¡Cuenta ${username} verificada exitosamente! Ahora puedes iniciar sesión.`);
 });
 
@@ -270,7 +263,7 @@ io.on('connection', (socket) => {
             lastPlayer = username;
             stats.clicks[username] = (stats.clicks[username] || 0) + 1;
             stats.losses[username] = (stats.losses[username] || 0) + 100;
-            stats.totalBets[username] = (stats.totalBets[username] || 0) + 100; // Registrar apuesta
+            stats.totalBets[username] = (stats.totalBets[username] || 0) + 100;
             io.emit('timer update', { seconds: timer, pot, lastPlayer });
         }
     });
@@ -317,7 +310,7 @@ setInterval(() => {
                 stats.winners.pop();
             }
             stats.losses[winner] = (stats.losses[winner] || 0) - playerWinAmount;
-            stats.topWinners[winner] = (stats.topWinners[winner] || 0) + 1; // Registrar victoria
+            stats.topWinners[winner] = (stats.topWinners[winner] || 0) + 1;
         }
         io.emit('timer update', { seconds: 0, pot, lastPlayer: winner });
         pot = Math.round(pot * 0.06);
