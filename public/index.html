@@ -1279,69 +1279,69 @@
             }
 
             // Funciones de autenticación
-            async function handleAuthSubmit() {
-                const usernameInput = authUsername.value.trim();
-                const passwordInput = authPassword.value.trim();
-                const confirmPasswordInput = authConfirmPassword.value.trim();
+        async function handleAuthSubmit() {
+            const usernameInput = authUsername.value.trim();
+            const passwordInput = authPassword.value.trim();
+            const confirmPasswordInput = authConfirmPassword.value.trim();
 
-                if (!usernameInput || !passwordInput) {
-                    showAuthMessage('Por favor, completa todos los campos.');
+            if (!usernameInput || !passwordInput) {
+                showAuthMessage('Por favor, completa todos los campos.');
+                return;
+            }
+
+            if (!isLoginMode && passwordInput !== confirmPasswordInput) {
+                showAuthMessage('Las contraseñas no coinciden.');
+                return;
+            }
+
+            const endpoint = isLoginMode ? '/login' : '/register';
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
+                });
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Respuesta no es JSON:', text);
+                    showAuthMessage(`Error del servidor: Respuesta no válida (recibido HTML o texto)`);
                     return;
                 }
 
-                if (!isLoginMode && passwordInput !== confirmPasswordInput) {
-                    showAuthMessage('Las contraseñas no coinciden.');
-                    return;
-                }
-
-                const endpoint = isLoginMode ? '/login' : '/register';
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: usernameInput, password: passwordInput })
-                    });
-
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const text = await response.text();
-                        console.error('Respuesta no es JSON:', text);
-                        showAuthMessage(`Error del servidor: Respuesta no válida (recibido HTML o texto)`);
-                        return;
-                    }
-
-                    const result = await response.json();
-                    if (result.success || result.message) {
-                        username = usernameInput;
-                        if (isLoginMode) {
-                            sessionId = result.sessionId;
-                            authContainer.classList.remove('active');
-                            if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
-                                gameContainer.classList.add('active');
-                                initializeGame();
-                            } else if (!result.telegramVerified) {
-                                showAuthMessage('Debes verificar tu cuenta con el bot de Telegram.');
-                                setTimeout(() => {
-                                    authContainer.classList.add('active');
-                                }, 3000);
-                            } else {
-                                policiesContainer.classList.add('active');
-                            }
-                        } else {
-                              showAuthMessage('Registro exitoso. Verifica tu cuenta enviando /start ' + username + ' a @NeigBot en Telegram.', true);
-                              setTimeout(() => {
-                                toggleAuthMode();
+                const result = await response.json();
+                if (result.success || result.message) {
+                    username = usernameInput;
+                    if (isLoginMode) {
+                        sessionId = result.sessionId;
+                        authContainer.classList.remove('active');
+                        if (result.policiesAccepted && result.policiesVersion === POLICIES_VERSION && result.telegramVerified) {
+                            gameContainer.classList.add('active');
+                            initializeGame();
+                        } else if (!result.telegramVerified) {
+                            showAuthMessage(`Debes verificar tu cuenta enviando /start ${username} a @NeigBot en Telegram.`);
+                            setTimeout(() => {
                                 authContainer.classList.add('active');
-                            }, 15000);
+                            }, 3000);
+                        } else {
+                            policiesContainer.classList.add('active');
                         }
                     } else {
-                        showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
+                        showAuthMessage('Registro exitoso. Verifica tu cuenta enviando /start ' + usuario + ' a @NeigBot en Telegram.', true);
+                        setTimeout(() => {
+                            toggleAuthMode();
+                            authContainer.classList.add('active');
+                        }, 15000);
                     }
-                } catch (error) {
-                    console.error('Error en autenticación:', error);
-                    showAuthMessage(`Error al conectar con el servidor: ${error.message}`);
+                } else {
+                    showAuthMessage(result.detail || (isLoginMode ? 'Usuario o contraseña incorrectos.' : 'El usuario ya existe.'));
                 }
+            } catch (error) {
+                console.error('Error en autenticación:', error);
+                showAuthMessage(`Error al conectar con el servidor: ${error.message}`);
             }
+        }
 
             function toggleAuthMode() {
                 isLoginMode = !isLoginMode;
