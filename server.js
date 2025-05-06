@@ -31,7 +31,7 @@ const bot = new TelegramBot(botToken, {
 
 // Configurar Mercado Pago
 mercadopago.configure({
-    access_token: process.env.MERCADOPAGO_ACCESS_TOKEN || 'TU_ACCESS_TOKEN' // Usa variable de entorno
+    access_token: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-1071572469780607-050314-f704327cc45a53fac876ad9599988328-320701222' // Usa variable de entorno
 });
 
 // Manejar errores de polling
