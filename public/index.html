@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Moneda del Vecindario (Firestore)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Press Start 2P Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #000;
+            background-image: linear-gradient(135deg, #1a237e 0%, #000000 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            image-rendering: pixelated;
+        }
+        .retro-box {
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 1rem;
+            border: 4px solid #ffeb3b;
+            border-radius: 8px;
+            box-shadow: 0 0 10px #ffeb3b, 0 0 20px #e91e63;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            transition: all 0.3s ease-in-out;
+        }
+        .retro-input {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border: 2px solid #03a9f4;
+            border-radius: 4px;
+            background-color: #1a237e;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+        }
+        .retro-button {
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            font-size: 0.8rem;
+            background-color: #e91e63;
+            color: #fff;
+            border: 2px solid #ffeb3b;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .retro-button:hover:not(:disabled) {
+            background-color: #c2185b;
+            box-shadow: 0 0 5px #ffeb3b;
+        }
+        .retro-button:disabled {
+            background-color: #616161;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .pot-display {
+            font-size: 1.5rem;
+            color: #ffeb3b;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.5rem;
+            border: 4px solid #03a9f4;
+            border-radius: 8px;
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            text-shadow: 0 0 8px #e91e63;
+            box-shadow: 0 0 10px #03a9f4;
+            flex-direction: column;
+        }
+        #progress-bar {
+            width: 80%;
+            height: 10px;
+            background-color: #1a237e;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #03a9f4;
+        }
+        #progress-bar-fill {
+            height: 100%;
+            background-color: #4caf50;
+            border-radius: 5px;
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+        #messages, #users-list {
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 4px solid #4caf50;
+            border-radius: 8px;
+            padding: 0.5rem;
+            min-height: 100px;
+            max-height: 250px;
+            overflow-y: auto;
+            font-size: 0.7rem;
+            color: #ffeb3b;
+        }
+        .message.audio {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        @media (max-width: 640px) {
+            .retro-box {
+                padding: 0.5rem;
+            }
+            .pot-display {
+                font-size: 1.2rem;
+                height: 120px;
+            }
+            .retro-button {
+                font-size: 0.7rem;
+                padding: 0.4rem 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body class="p-4">
+    <!-- Contenedor de Autenticación/Registro Inicial (Ask for Display Name) -->
+    <div id="auth-container" class="active flex flex-col items-center mt-8 w-full max-w-md">
+        <div id="auth-form" class="retro-box">
+            <h2 id="auth-title" class="text-xl text-ffeb3b mb-4">¡Bienvenido!</h2>
+            <p class="text-xs text-center mb-4 text-03a9f4">
+                Por favor, elige un nombre de usuario. <br> Tu ID: <span id="user-id-display" class="text-e91e63 text-sm">Cargando...</span>
+            </p>
+            <input type="text" id="auth-username" class="retro-input" placeholder="Nombre de Usuario (Máx 12 chars)" maxlength="12" required>
+            <button id="auth-submit" class="retro-button w-full mt-2">Continuar</button>
+            <p id="auth-message" class="text-xs mt-2 h-4"></p>
+        </div>
+    </div>
+
+    <!-- Contenedor de Políticas -->
+    <div id="policies-container" class="hidden flex-col items-center mt-8 w-full max-w-md">
+        <div id="policies-form" class="retro-box">
+            <h2 class="text-xl text-ffeb3b mb-4">Políticas y Condiciones</h2>
+            <div id="policies-content" class="max-h-60 overflow-y-auto text-left text-xs mb-4 p-2 border-2 border-03a9f4 bg-1a237e">
+                <p><strong>Última actualización: 4 de mayo de 2025</strong></p>
+                <p>Bienvenido a <strong>La Moneda del Vecindario</strong>. Al participar, aceptas estos términos:</p>
+                <p class="text-e91e63"><strong>1. Contrato de Responsabilidad</strong>: Al hacer clic en "Aceptar", firmas un <strong>contrato de responsabilidad</strong>. Asumes todos los riesgos de participar. Si rechazas, solo podrás usar el chat y observar.</p>
+                <p><strong>2. Naturaleza del Juego</strong>: Cada participación requiere apostar <strong>100 Neig</strong>. Puedes perder la totalidad de tu apuesta. La plataforma no ofrece reembolsos.</p>
+                <p><strong>3. Distribución</strong>: 89% al ganador, 5% a desarrolladores, 6% al pozo.</p>
+                <p class="text-e91e63"><strong>4. NO Retiros Reales</strong>: En esta versión de demostración (Demo/Canvas), los retiros son **simulados** y no resultan en transacciones de dinero real. La función solo actualiza tu estado en Firestore.</p>
+                <p><strong>5. Elegibilidad</strong>: Debes ser mayor de 18 años.</p>
+                <p><strong>6. Privacidad</strong>: Recopilamos tu UID y nombre de usuario en Firestore. No se comparten datos fuera de la plataforma.</p>
+                <p><strong>7. Desplazamiento Requerido</strong>: Para aceptar, debes desplazarte hasta el final de este texto. Elige sabiamente.</p>
+                <!-- Long Text Scroll Filler -->
+                <p>Esto asegura que leas completamente los términos antes de aceptar. La aceptación implica un contrato vinculante de asumir el riesgo. El rechazo limita tus funciones a solo visualización y chat. No hay excepciones.</p>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+                <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?</p>
+            </div>
+            <button id="policies-accept" class="retro-button" disabled>Aceptar</button>
+            <button id="policies-reject" class="retro-button">Rechazar</button>
+            <p id="policies-message" class="text-xs mt-2 text-ffeb3b h-4"></p>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal del Juego -->
+    <div id="game-container" class="hidden flex-col items-center mt-8 w-full max-w-md">
+        <div id="user-info" class="flex justify-between items-center w-full mb-2 bg-black bg-opacity-70 p-2 rounded-lg border-2 border-ffeb3b">
+            <p id="username-display" class="text-xs text-ffeb3b">Usuario: N/A</p>
+            <p id="coins-display" class="text-xs text-ffeb3b">Saldo: 0 Neig</p>
+        </div>
+
+        <div id="pot-display" class="pot-display mb-4">
+            <p class="text-sm mb-2">Pozo Actual:</p>
+            <p class="text-2xl font-bold">0 Neig</p>
+        </div>
+
+        <div id="timer-display" class="w-full retro-box p-4 mb-4 border-4 border-4caf50">
+            <p class="text-sm">Tiempo Restante: 4:00</p>
+            <div id="progress-bar">
+                <div id="progress-bar-fill"></div>
+            </div>
+            <p id="timer-percentage" class="text-xs mt-2 text-4caf50">100%</p>
+        </div>
+
+        <button id="compete-button" class="retro-button text-lg p-3 w-full max-w-xs mb-4">
+            Jugar (100 Neig)
+        </button>
+
+        <div id="message-box" class="text-xs text-center retro-box p-2 mb-4 border-2 border-03a9f4 text-03a9f4 max-w-sm">
+            Cargando juego...
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-2 mb-4 w-full">
+            <button id="reload-button" class="retro-button bg-03a9f4">Recargar Neig</button>
+            <button id="withdraw-button" class="retro-button bg-03a9f4">Retirar Neig</button>
+            <button id="settings-button" class="retro-button bg-e91e63">Configuración</button>
+        </div>
+
+        <div id="policies-status" class="flex items-center text-xs mt-2 text-e91e63">
+            <input type="checkbox" id="policies-checkbox" disabled class="mr-2">
+            <span id="policies-text">Ud. no aceptó las </span>
+            <a id="policies-link" href="javascript:void(0)" class="text-03a9f4 underline ml-1">Políticas y Condiciones</a>
+        </div>
+
+        <!-- Chat y Último Jugador -->
+        <div class="w-full flex flex-col md:flex-row gap-4 mt-4">
+            <div id="chat-container" class="w-full">
+                <div id="users-list" class="retro-box mb-2 border-4 border-03a9f4">Usuarios conectados: 0</div>
+                <div id="messages" class="retro-box mb-2 border-4 border-4caf50 text-left"></div>
+                <form id="message-form" class="flex flex-wrap gap-2 justify-center">
+                    <input type="text" id="message-input" class="retro-input flex-grow min-w-[120px]" placeholder="Escribe un mensaje">
+                    <button type="button" id="record-button" class="retro-button bg-4caf50 text-white">Grabar Audio</button>
+                    <button type="submit" id="send-button" class="retro-button">Enviar</button>
+                    <p id="chat-message" class="text-xs w-full text-center text-ffeb3b mt-1 h-4"></p>
+                </form>
+            </div>
+        </div>
+
+        <div id="last-players" class="retro-box p-2 text-xs w-full max-w-sm mt-4 border-4 border-4caf50">
+            Último Jugador: Ninguno
+        </div>
+
+    </div>
+
+    <!-- Contenedor de Configuración -->
+    <div id="settings-container" class="hidden flex-col items-center mt-8 w-full max-w-md">
+        <div id="settings-form" class="retro-box">
+            <h2 class="text-xl text-ffeb3b mb-4">Configuración</h2>
+            <p class="text-xs text-left mb-2 text-03a9f4">Configura tus datos para retiros (simulados en la demo).</p>
+            <input type="text" id="settings-cvu" class="retro-input" placeholder="CVU/CBU o Alias (Transferencia)">
+            <input type="text" id="settings-metamask" class="retro-input" placeholder="Dirección MetaMask (Neig/Demo)">
+            <button id="settings-save" class="retro-button">Guardar</button>
+            <button id="settings-back" class="retro-button bg-gray-500">Volver</button>
+            <p id="settings-message" class="text-xs mt-2 text-ffeb3b h-4"></p>
+        </div>
+    </div>
+
+    <!-- Formulario de Retiro (Modal) -->
+    <div id="withdraw-form" class="retro-box hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-6">
+        <h2 class="text-xl text-ffeb3b mb-4">Retirar Neig (Demo)</h2>
+        <p class="text-xs text-e91e63 mb-4">RETIRO SIMULADO: Esta acción solo actualiza tu saldo en la base de datos de la demo. No hay transferencia de dinero real.</p>
+        <input type="number" id="withdraw-amount" class="retro-input" placeholder="Cantidad a retirar" min="1" required>
+        <select id="withdraw-currency" class="retro-input">
+            <option value="Neig">Neig (MetaMask)</option>
+            <option value="Pesos">Pesos (CVU/CBU)</option>
+        </select>
+        <button id="withdraw-submit" class="retro-button bg-4caf50">Confirmar Retiro</button>
+        <button id="withdraw-cancel" class="retro-button bg-gray-500">Cancelar</button>
+        <p id="withdraw-message" class="text-xs mt-2 text-ffeb3b h-4"></p>
+    </div>
+
+    <!-- Formulario de Recarga (Modal) -->
+    <div id="reload-form" class="retro-box hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-6">
+        <h2 class="text-xl text-ffeb3b mb-4">Recargar Neig (Demo)</h2>
+        <p class="text-xs text-e91e63 mb-4">RECARGA SIMULADA: Los fondos se añadirán directamente a tu saldo de la demo.</p>
+        <input type="number" id="reload-amount" class="retro-input" placeholder="Cantidad a recargar" min="1" required>
+        <button id="reload-submit" class="retro-button bg-4caf50">Confirmar</button>
+        <button id="reload-cancel" class="retro-button bg-gray-500">Cancelar</button>
+        <p id="reload-message" class="text-xs mt-2 text-ffeb3b h-4"></p>
+    </div>
+
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, collection, query, addDoc, serverTimestamp, runTransaction, getDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuración Global ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Constantes del Juego
+        const BET_AMOUNT = 100;
+        const TIMER_DURATION_MS = 240000; // 4 minutos
+        const POLICIES_VERSION = "1.3.0";
+        const DEVELOPER_PERCENTAGE = 0.05;
+        const POT_PERCENTAGE = 0.06;
+        const WINNER_PERCENTAGE = 1 - DEVELOPER_PERCENTAGE - POT_PERCENTAGE;
+
+        // Rutas de Firestore
+        const GAME_STATE_PATH = `artifacts/${appId}/public/data/game/state`;
+        const CHAT_COLLECTION_PATH = `artifacts/${appId}/public/data/chat/messages`;
+        const USERS_COLLECTION_PATH = `artifacts/${appId}/users`;
+        const STATS_COLLECTION_PATH = `artifacts/${appId}/public/data/stats/winners`;
+
+        // Instancias de Firebase
+        let app, db, auth;
+        let userId = null;
+        let username = null;
+        let isAuthReady = false;
+        let policiesAccepted = false;
+
+        // Estado Local del Juego
+        let localPlayerCoins = 0;
+        let currentPot = 0;
+        let lastPlayer = "Ninguno";
+        let lastPlayerUid = null;
+        let timerStartTimestamp = 0;
+        let timerInterval = null;
+        let hasParticipatedInCurrentRound = false;
+
+        // --- Elementos del DOM (Abreviados) ---
+        const $ = id => document.getElementById(id);
+
+        const authContainer = $('auth-container');
+        const policiesContainer = $('policies-container');
+        const gameContainer = $('game-container');
+        const settingsContainer = $('settings-container');
+        const withdrawForm = $('withdraw-form');
+        const reloadForm = $('reload-form');
+
+        const authSubmit = $('auth-submit');
+        const authUsernameInput = $('auth-username');
+        const userIdDisplay = $('user-id-display');
+        const authMessage = $('auth-message');
+
+        const policiesContent = $('policies-content');
+        const policiesAccept = $('policies-accept');
+        const policiesReject = $('policies-reject');
+        const policiesMessage = $('policies-message');
+        const policiesCheckbox = $('policies-checkbox');
+        const policiesText = $('policies-text');
+        const policiesLink = $('policies-link');
+
+        const usernameDisplay = $('username-display');
+        const coinsDisplay = $('coins-display');
+        const potDisplay = $('pot-display');
+        const timerDisplay = $('timer-display');
+        const progressBarFill = $('progress-bar-fill');
+        const timerPercentageDisplay = $('timer-percentage');
+        const competeButton = $('compete-button');
+        const messageBox = $('message-box');
+        const withdrawButton = $('withdraw-button');
+        const reloadButton = $('reload-button');
+        const settingsButton = $('settings-button');
+
+        const settingsDisplayName = $('settings-display-name');
+        const settingsCvu = $('settings-cvu');
+        const settingsMetamask = $('settings-metamask');
+        const settingsSave = $('settings-save');
+        const settingsBack = $('settings-back');
+        const settingsMessage = $('settings-message');
+
+        const withdrawSubmit = $('withdraw-submit');
+        const withdrawCancel = $('withdraw-cancel');
+        const withdrawAmount = $('withdraw-amount');
+        const withdrawCurrency = $('withdraw-currency');
+        const withdrawMessage = $('withdraw-message');
+
+        const reloadSubmit = $('reload-submit');
+        const reloadCancel = $('reload-cancel');
+        const reloadAmount = $('reload-amount');
+        const reloadMessage = $('reload-message');
+
+        const messagesContainer = $('messages');
+        const messageInput = $('message-input');
+        const messageForm = $('message-form');
+        const usersList = $('users-list');
+        const chatMessage = $('chat-message');
+        const recordButton = $('record-button');
+
+        // --- Funciones de Utilidad ---
+
+        function showMessage(element, message, color = 'text-ffeb3b') {
+            if (element) {
+                element.textContent = message;
+                element.className = `text-xs mt-2 ${color} h-4`;
+                if (element === messageBox) {
+                    messageBox.textContent = message; // for main message box
+                    messageBox.className = `text-xs text-center retro-box p-2 mb-4 border-2 border-03a9f4 ${color} max-w-sm`;
+                }
+                setTimeout(() => {
+                    element.textContent = '';
+                    if (element === messageBox) {
+                         messageBox.className = `text-xs text-center retro-box p-2 mb-4 border-2 border-03a9f4 text-03a9f4 max-w-sm`;
+                         messageBox.textContent = 'Presiona Jugar para comenzar la ronda.';
+                    }
+                }, 8000);
+            }
+        }
+
+        // Simulación de grabación de audio (no es posible con un solo archivo, solo envía texto)
+        recordButton.addEventListener('click', () => {
+            showMessage(chatMessage, 'La función de audio no está disponible en este entorno de archivo único. Envía un mensaje de texto.', 'text-e91e63');
+        });
+
+        // --- FIREBASE: Inicialización y Autenticación ---
+
+        async function initializeFirebase() {
+            setLogLevel('debug');
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // 1. Intento de inicio de sesión con Custom Token (si existe) o Anónimo
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // 2. Establecer listener de estado de autenticación
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId.substring(0, 10) + '...';
+                        await loadInitialUserState();
+                        isAuthReady = true;
+                    } else {
+                        // Esto no debería suceder si la autenticación anónima tuvo éxito
+                        showMessage(authMessage, 'Error de autenticación. Intenta refrescar.', 'text-e91e63');
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase:", error);
+                showMessage(authMessage, `Error de inicio: ${error.message}`, 'text-e91e63');
+            }
+        }
+
+        async function loadInitialUserState() {
+            const userDocRef = doc(db, USERS_COLLECTION_PATH, userId);
+            const userDoc = await getDoc(userDocRef);
+
+            if (!userDoc.exists() || !userDoc.data().username) {
+                // Nuevo usuario: Mostrar pantalla de registro de nombre de usuario
+                authContainer.classList.remove('hidden');
+                authContainer.classList.add('active');
+                policiesContainer.classList.remove('active');
+                gameContainer.classList.remove('active');
+            } else {
+                // Usuario existente: Cargar datos
+                const userData = userDoc.data();
+                username = userData.username;
+                localPlayerCoins = userData.coins || 1000;
+                policiesAccepted = userData.policiesAccepted || false;
+
+                authContainer.classList.remove('active');
+
+                if (policiesAccepted) {
+                    gameContainer.classList.add('active');
+                    initializeGameListeners();
+                } else {
+                    policiesContainer.classList.add('active');
+                }
+            }
+        }
+
+        // --- Manejadores de Pantalla ---
+
+        async function handleAuthSubmit() {
+            const newUsername = authUsernameInput.value.trim();
+            if (!newUsername || newUsername.length > 12) {
+                showMessage(authMessage, 'Nombre de usuario inválido (1-12 caracteres).', 'text-e91e63');
+                return;
+            }
+
+            try {
+                // Verificar si el nombre de usuario ya existe
+                const q = query(collection(db, USERS_COLLECTION_PATH), where("username", "==", newUsername));
+                const existingUsers = await getDocs(q);
+
+                if (!existingUsers.empty) {
+                     showMessage(authMessage, 'El nombre de usuario ya está en uso.', 'text-e91e63');
+                     return;
+                }
+
+                // Crear o actualizar el documento del usuario
+                const userDocRef = doc(db, USERS_COLLECTION_PATH, userId);
+                await setDoc(userDocRef, {
+                    username: newUsername,
+                    uid: userId,
+                    coins: 1000,
+                    policiesAccepted: false,
+                    policiesVersion: POLICIES_VERSION,
+                    settings: {},
+                    lastSeen: serverTimestamp(),
+                }, { merge: true });
+
+                username = newUsername;
+                localPlayerCoins = 1000;
+                policiesAccepted = false; // Se dirige a aceptar políticas
+
+                authContainer.classList.remove('active');
+                policiesContainer.classList.add('active');
+
+                showMessage(messageBox, `Bienvenido, ${username}! Por favor, acepta las políticas.`, 'text-4caf50');
+            } catch (error) {
+                console.error("Error al registrar nombre de usuario:", error);
+                showMessage(authMessage, 'Error al guardar usuario. Intenta de nuevo.', 'text-e91e63');
+            }
+        }
+
+        function toggleScreen(showElement) {
+            [authContainer, policiesContainer, gameContainer, settingsContainer, withdrawForm, reloadForm].forEach(el => {
+                if (el === showElement) {
+                    el.classList.remove('hidden');
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                    el.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- FIREBASE: Lógica del Juego y Listeners ---
+
+        function initializeGameListeners() {
+            if (!db || !userId) return;
+
+            // Listener de Estado del Juego (Pozo y Temporizador)
+            onSnapshot(doc(db, GAME_STATE_PATH), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    currentPot = data.pot || 0;
+                    lastPlayer = data.lastPlayer || "Ninguno";
+                    lastPlayerUid = data.lastPlayerUid || null;
+                    timerStartTimestamp = data.timerStartTimestamp || Date.now();
+                    updateGameUI();
+                    checkWinCondition();
+                } else {
+                    // Inicializar estado del juego si no existe
+                    setDoc(doc(db, GAME_STATE_PATH), {
+                        pot: 0,
+                        lastPlayer: "Ninguno",
+                        lastPlayerUid: null,
+                        timerStartTimestamp: Date.now(),
+                        lastUpdateTime: serverTimestamp()
+                    });
+                }
+            });
+
+            // Listener de Datos del Usuario (Monedas y Configuración)
+            onSnapshot(doc(db, USERS_COLLECTION_PATH, userId), (docSnap) => {
+                if (docSnap.exists()) {
+                    const userData = docSnap.data();
+                    localPlayerCoins = userData.coins || 0;
+                    policiesAccepted = userData.policiesAccepted || false;
+                    updatePlayerInfoUI(userData);
+
+                    // Verificar si ya participé en esta ronda
+                    const roundStartTime = timerStartTimestamp || Date.now();
+                    hasParticipatedInCurrentRound = userData.lastCompeteTimestamp > roundStartTime;
+                    updateCompeteButton();
+
+                    // Si las políticas fueron rechazadas, deshabilitar todo
+                    if (!policiesAccepted) {
+                        competeButton.disabled = true;
+                        reloadButton.disabled = true;
+                        withdrawButton.disabled = true;
+                    }
+                }
+            });
+
+            // Listener de Chat
+            const chatQuery = query(collection(db, CHAT_COLLECTION_PATH));
+            onSnapshot(chatQuery, (snapshot) => {
+                messagesContainer.innerHTML = '';
+                let connectedUsers = new Set();
+                snapshot.docs.forEach(doc => {
+                    const msg = doc.data();
+                    addMessage({ user: msg.user, content: msg.content, type: msg.type });
+                    connectedUsers.add(msg.user);
+                });
+                // Esto es una simplificación: muestra a todos los que han chateado recientemente
+                usersList.innerHTML = `<strong>Usuarios en chat: ${connectedUsers.size}</strong>`;
+            });
+
+
+            // Iniciar el temporizador de la UI
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimerUI, 100);
+
+            showMessage(messageBox, 'Presiona Jugar para comenzar la ronda.', 'text-03a9f4');
+        }
+
+        // --- FIREBASE: Lógica de Ganancia y Transacciones ---
+
+        async function checkWinCondition() {
+            if (!db || !userId || !isAuthReady) return;
+
+            const timeElapsed = Date.now() - timerStartTimestamp;
+            if (timeElapsed >= TIMER_DURATION_MS) {
+                // Si el juego ha terminado, procesar la ganancia
+                if (lastPlayerUid && lastPlayerUid !== "Ninguno") {
+                    await processWin(lastPlayerUid, lastPlayer, currentPot);
+                } else {
+                    // Si termina sin clicks, resetear solo el pozo/tiempo (debe ser muy raro)
+                    await resetGameState(0);
+                }
+            }
+        }
+
+        async function processWin(winnerUid, winnerUsername, potAmount) {
+             // Solo un usuario debe ejecutar la transacción para evitar dobles pagos
+             // Usamos un sistema de bloqueo con el campo 'lastWinProcessed' en el game state.
+            const gameRef = doc(db, GAME_STATE_PATH);
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const gameDoc = await transaction.get(gameRef);
+                    if (!gameDoc.exists()) throw "Game state does not exist.";
+
+                    const data = gameDoc.data();
+                    const lastProcessedTime = data.lastWinProcessed || 0;
+                    // Prevenir re-ejecución si ya se procesó una ganancia para este timestamp
+                    if (data.timerStartTimestamp === lastProcessedTime) {
+                        return; // Ya procesado
+                    }
+
+                    // 1. Calcular distribución
+                    const winnerShare = Math.round(potAmount * WINNER_PERCENTAGE);
+                    const newPot = Math.round(potAmount * POT_PERCENTAGE);
+
+                    // 2. Actualizar las monedas del ganador
+                    const winnerRef = doc(db, USERS_COLLECTION_PATH, winnerUid);
+                    const winnerDoc = await transaction.get(winnerRef);
+                    if (winnerDoc.exists()) {
+                        const winnerCoins = winnerDoc.data().coins || 0;
+                        transaction.update(winnerRef, {
+                            coins: winnerCoins + winnerShare,
+                            wins: (winnerDoc.data().wins || 0) + 1,
+                        });
+                    }
+
+                    // 3. Registrar en chat
+                    await addDoc(collection(db, CHAT_COLLECTION_PATH), {
+                        user: 'Sistema',
+                        content: `¡${winnerUsername} ganó ${winnerShare} Neig! Pozo reiniciado.`,
+                        type: 'text',
+                        timestamp: serverTimestamp(),
+                        roundId: data.timerStartTimestamp
+                    });
+
+                    // 4. Resetear el estado del juego para la nueva ronda
+                    transaction.update(gameRef, {
+                        pot: newPot,
+                        lastPlayer: "Ninguno",
+                        lastPlayerUid: null,
+                        timerStartTimestamp: Date.now(),
+                        lastWinProcessed: data.timerStartTimestamp // Bloqueo de la transacción
+                    });
+
+                    // 5. Opcional: Registrar estadística de ganancia (simulación)
+                    await addDoc(collection(db, STATS_COLLECTION_PATH), {
+                        username: winnerUsername,
+                        amount: winnerShare,
+                        timestamp: serverTimestamp()
+                    });
+                });
+            } catch (error) {
+                console.error("Fallo la transacción de ganancia:", error);
+                // Si la transacción falla (por otra transacción simultánea o error), simplemente lo ignoramos.
+            }
+        }
+
+        async function handleCompete() {
+            if (!policiesAccepted) {
+                showMessage(messageBox, 'Debes aceptar las Políticas y Condiciones para jugar.', 'text-e91e63');
+                return;
+            }
+            if (localPlayerCoins < BET_AMOUNT) {
+                showMessage(messageBox, 'No tienes suficientes Neig para jugar (se requieren 100 Neig).', 'text-e91e63');
+                return;
+            }
+            if (hasParticipatedInCurrentRound) {
+                showMessage(messageBox, 'Ya has participado en esta ronda.', 'text-e91e63');
+                return;
+            }
+
+            const gameRef = doc(db, GAME_STATE_PATH);
+            const userRef = doc(db, USERS_COLLECTION_PATH, userId);
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const gameDoc = await transaction.get(gameRef);
+                    const userDoc = await transaction.get(userRef);
+
+                    if (!gameDoc.exists() || !userDoc.exists()) throw "Documentos no encontrados.";
+
+                    const gameData = gameDoc.data();
+                    const userData = userDoc.data();
+
+                    // Verificar doble click/participación en transacción
+                    if (userData.lastCompeteTimestamp === gameData.timerStartTimestamp) {
+                        throw "Ya has participado en esta ronda.";
+                    }
+
+                    // 1. Deducir monedas del usuario
+                    transaction.update(userRef, {
+                        coins: userData.coins - BET_AMOUNT,
+                        lastCompeteTimestamp: gameData.timerStartTimestamp,
+                        totalBets: (userData.totalBets || 0) + BET_AMOUNT,
+                    });
+
+                    // 2. Actualizar estado del juego
+                    transaction.update(gameRef, {
+                        pot: gameData.pot + BET_AMOUNT,
+                        lastPlayer: username,
+                        lastPlayerUid: userId,
+                        timerStartTimestamp: Date.now(), // Resetear temporizador
+                        lastUpdateTime: serverTimestamp(),
+                    });
+
+                    // 3. Registrar en chat
+                    await addDoc(collection(db, CHAT_COLLECTION_PATH), {
+                        user: 'Sistema',
+                        content: `${username} apostó ${BET_AMOUNT} Neig!`,
+                        type: 'text',
+                        timestamp: serverTimestamp(),
+                    });
+
+                    // Actualizar estado local (se sobrescribirá con el listener, pero es más rápido)
+                    localPlayerCoins -= BET_AMOUNT;
+                    hasParticipatedInCurrentRound = true;
+
+                    showMessage(messageBox, `¡Has apostado ${BET_AMOUNT} Neig! Eres el último jugador.`, 'text-4caf50');
+                });
+            } catch (error) {
+                console.error("Fallo la transacción de Compete:", error);
+                showMessage(messageBox, `Error al participar: ${error.message || 'Error desconocido'}`, 'text-e91e63');
+            }
+        }
+
+
+        // --- UI y Temporizador ---
+
+        function updatePlayerInfoUI(userData) {
+            const displayName = userData.username || 'N/A';
+            usernameDisplay.textContent = `Usuario: ${displayName}`;
+            coinsDisplay.textContent = `Saldo: ${localPlayerCoins} Neig`;
+
+            // Políticas
+            policiesCheckbox.checked = policiesAccepted;
+            if (policiesAccepted) {
+                $('policies-status').className = 'flex items-center text-xs mt-2 text-4caf50';
+                policiesText.textContent = 'Ud. aceptó las ';
+            } else {
+                $('policies-status').className = 'flex items-center text-xs mt-2 text-e91e63';
+                policiesText.textContent = 'Ud. no aceptó las ';
+            }
+        }
+
+        function updateCompeteButton() {
+            const isEligible = policiesAccepted && localPlayerCoins >= BET_AMOUNT && !hasParticipatedInCurrentRound;
+            competeButton.disabled = !isEligible;
+            competeButton.textContent = hasParticipatedInCurrentRound ? 'Esperando Ronda...' : `Jugar (${BET_AMOUNT} Neig)`;
+
+            reloadButton.disabled = !policiesAccepted;
+            withdrawButton.disabled = !policiesAccepted;
+        }
+
+        function updateGameUI() {
+            // Pozo y Último Jugador
+            potDisplay.querySelector('p:last-child').textContent = `${currentPot} Neig`;
+            $('last-players').innerHTML = `<strong>Último Jugador:</strong> ${lastPlayer}`;
+        }
+
+        function updateTimerUI() {
+            if (timerStartTimestamp === 0) return;
+
+            const timeElapsed = Date.now() - timerStartTimestamp;
+            const timeLeft = Math.max(0, TIMER_DURATION_MS - timeElapsed);
+
+            const minutes = Math.floor(timeLeft / 60000);
+            const secs = Math.floor((timeLeft % 60000) / 1000);
+            const ms = Math.floor((timeLeft % 1000) / 100);
+
+            const percentage = Math.min(100, (timeLeft / TIMER_DURATION_MS) * 100);
+
+            timerDisplay.querySelector('p').textContent = `Tiempo Restante: ${minutes}:${secs < 10 ? '0' : ''}${secs}.${ms}`;
+            progressBarFill.style.width = `${percentage}%`;
+            timerPercentageDisplay.textContent = `${Math.round(percentage)}%`;
+
+            if (timeLeft === 0) {
+                checkWinCondition(); // Revisa y procesa la ganancia si expira
+            }
+        }
+
+        // --- MANEJADORES DE CHAT ---
+
+        async function addMessage({ user, content, type = 'text' }) {
+            try {
+                const div = document.createElement('div');
+                div.className = `message text-white ${type === 'audio' ? 'audio' : ''}`;
+                if (type === 'text') {
+                    div.innerHTML = `<span class="text-ffeb3b">${user}:</span> ${content}`;
+                } else if (type === 'audio') {
+                    // Simulación de audio (no funcional en entorno de archivo único)
+                    div.innerHTML = `<span class="text-ffeb3b">${user}:</span> [Audio Simulacro]`;
+                }
+                messagesContainer.appendChild(div);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error al añadir mensaje:', error);
+            }
+        }
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = messageInput.value.trim();
+            if (content && username) {
+                try {
+                    await addDoc(collection(db, CHAT_COLLECTION_PATH), {
+                        user: username,
+                        content: content,
+                        type: 'text',
+                        timestamp: serverTimestamp()
+                    });
+                    messageInput.value = '';
+                } catch (error) {
+                    showMessage(chatMessage, 'Error al enviar mensaje.', 'text-e91e63');
+                    console.error('Error al guardar mensaje:', error);
+                }
+            } else {
+                showMessage(chatMessage, 'Inicia sesión para enviar mensajes.', 'text-e91e63');
+            }
+        });
+
+
+        // --- MANEJADORES DE POLÍTICAS ---
+
+        policiesContent.addEventListener('scroll', () => {
+            const isAtBottom = policiesContent.scrollHeight - policiesContent.scrollTop <= policiesContent.clientHeight + 1;
+            policiesAccept.disabled = !isAtBottom;
+        });
+
+        async function handlePoliciesAccept() {
+            try {
+                await updateDoc(doc(db, USERS_COLLECTION_PATH, userId), {
+                    policiesAccepted: true,
+                    policiesVersion: POLICIES_VERSION
+                });
+                policiesAccepted = true;
+                toggleScreen(gameContainer);
+                initializeGameListeners();
+                showMessage(messageBox, 'Políticas aceptadas. ¡A jugar!', 'text-4caf50');
+            } catch (error) {
+                showMessage(policiesMessage, 'Error al aceptar políticas.', 'text-e91e63');
+            }
+        }
+
+        async function handlePoliciesReject() {
+            try {
+                await updateDoc(doc(db, USERS_COLLECTION_PATH, userId), {
+                    policiesAccepted: false,
+                    policiesVersion: POLICIES_VERSION
+                });
+                policiesAccepted = false;
+                toggleScreen(gameContainer);
+                showMessage(messageBox, 'Políticas rechazadas. Solo puedes observar y chatear.', 'text-e91e63');
+            } catch (error) {
+                showMessage(policiesMessage, 'Error al rechazar políticas.', 'text-e91e63');
+            }
+        }
+
+        policiesLink.addEventListener('click', () => {
+            showMessage(messageBox, 'Para ver las políticas, navega a la pestaña de Políticas.', 'text-03a9f4');
+            toggleScreen(policiesContainer);
+        });
+
+        // --- MANEJADORES DE ACCIONES DE JUEGO (Recargar, Retirar, Configuración) ---
+
+        settingsButton.addEventListener('click', async () => {
+            toggleScreen(settingsContainer);
+            const userDoc = await getDoc(doc(db, USERS_COLLECTION_PATH, userId));
+            if (userDoc.exists() && userDoc.data().settings) {
+                const settings = userDoc.data().settings;
+                settingsCvu.value = settings.cvu || '';
+                settingsMetamask.value = settings.metamask || '';
+            }
+        });
+
+        settingsSave.addEventListener('click', async () => {
+            try {
+                await updateDoc(doc(db, USERS_COLLECTION_PATH, userId), {
+                    settings: {
+                        cvu: settingsCvu.value.trim(),
+                        metamask: settingsMetamask.value.trim()
+                    }
+                });
+                showMessage(settingsMessage, 'Configuración guardada.', 'text-4caf50');
+                setTimeout(() => toggleScreen(gameContainer), 1000);
+            } catch (error) {
+                showMessage(settingsMessage, 'Error al guardar configuración.', 'text-e91e63');
+            }
+        });
+
+        settingsBack.addEventListener('click', () => toggleScreen(gameContainer));
+
+        reloadButton.addEventListener('click', () => {
+            if (!policiesAccepted) { showMessage(messageBox, 'Debes aceptar las políticas.', 'text-e91e63'); return; }
+            toggleScreen(reloadForm);
+        });
+        reloadCancel.addEventListener('click', () => toggleScreen(gameContainer));
+
+        reloadSubmit.addEventListener('click', async () => {
+            const amount = parseInt(reloadAmount.value);
+            if (!amount || amount <= 0) { showMessage(reloadMessage, 'Cantidad inválida.', 'text-e91e63'); return; }
+
+            try {
+                const userRef = doc(db, USERS_COLLECTION_PATH, userId);
+                await runTransaction(db, async (transaction) => {
+                    const userDoc = await transaction.get(userRef);
+                    if (!userDoc.exists()) throw "Usuario no encontrado.";
+                    const currentCoins = userDoc.data().coins || 0;
+                    transaction.update(userRef, {
+                        coins: currentCoins + amount,
+                        lastReload: serverTimestamp()
+                    });
+                });
+                localPlayerCoins += amount;
+                updatePlayerInfoUI({ username, coins: localPlayerCoins });
+                showMessage(messageBox, `Se han recargado ${amount} Neig.`, 'text-4caf50');
+                toggleScreen(gameContainer);
+            } catch (error) {
+                showMessage(reloadMessage, `Error de recarga: ${error.message}`, 'text-e91e63');
+            }
+        });
+
+        withdrawButton.addEventListener('click', () => {
+            if (!policiesAccepted) { showMessage(messageBox, 'Debes aceptar las políticas.', 'text-e91e63'); return; }
+            toggleScreen(withdrawForm);
+        });
+        withdrawCancel.addEventListener('click', () => toggleScreen(gameContainer));
+
+        withdrawSubmit.addEventListener('click', async () => {
+            const amount = parseInt(withdrawAmount.value);
+            const currency = withdrawCurrency.value;
+
+            if (!amount || amount <= 0) { showMessage(withdrawMessage, 'Cantidad inválida.', 'text-e91e63'); return; }
+            if (amount > localPlayerCoins) { showMessage(withdrawMessage, 'Saldo insuficiente.', 'text-e91e63'); return; }
+
+            try {
+                // Simulación de Retiro (Solo actualiza estado)
+                const userRef = doc(db, USERS_COLLECTION_PATH, userId);
+                await runTransaction(db, async (transaction) => {
+                    const userDoc = await transaction.get(userRef);
+                    if (!userDoc.exists()) throw "Usuario no encontrado.";
+                    const currentCoins = userDoc.data().coins || 0;
+                    transaction.update(userRef, {
+                        coins: currentCoins - amount,
+                        lastWithdraw: serverTimestamp(),
+                        lastWithdrawAmount: amount,
+                        lastWithdrawCurrency: currency
+                    });
+                });
+
+                localPlayerCoins -= amount;
+                updatePlayerInfoUI({ username, coins: localPlayerCoins });
+                showMessage(messageBox, `Solicitud de retiro simulada de ${amount} ${currency} enviada.`, 'text-4caf50');
+                toggleScreen(gameContainer);
+                // NOTA: Aquí iría la lógica de notificación real (e.g., EmailJS o Telegram Bot)
+            } catch (error) {
+                showMessage(withdrawMessage, `Error de retiro: ${error.message}`, 'text-e91e63');
+            }
+        });
+
+
+        // --- ASIGNACIÓN DE EVENTOS INICIALES ---
+        authSubmit.addEventListener('click', handleAuthSubmit);
+        policiesAccept.addEventListener('click', handlePoliciesAccept);
+        policiesReject.addEventListener('click', handlePoliciesReject);
+        competeButton.addEventListener('click', handleCompete);
+        $('stats-button').addEventListener('click', () => showMessage(messageBox, 'Estadísticas no implementadas en esta versión.'));
+        $('logout-button').addEventListener('click', async () => {
+            if (auth) await signOut(auth);
+            window.location.reload(); // Recargar para iniciar sesión anónima de nuevo
+        });
+
+        // --- INICIO ---
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
+
